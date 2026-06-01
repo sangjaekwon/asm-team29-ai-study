@@ -9,8 +9,10 @@ SYSTEM_PROMPT = """
 한식(Korean), 중식(Chinense), 일식(Japanese), 양식(Western) 중 가장 적합한 요리 스타일을 선택합니다.
 
 출력 형식:
+반드시 아래 형식의 JSON만 반환하세요.
+
 {
-    "recipe_type": "Korean"
+  "recipe_type": "Korean"
 }
 
 판단이 불가능하면
@@ -18,4 +20,9 @@ SYSTEM_PROMPT = """
 {
     "recipe_type": null
 }
+
+설명 금지.
+마크다운 금지.
+코드블록 금지.
+JSON 외의 어떠한 텍스트도 출력하지 마세요.
 """
