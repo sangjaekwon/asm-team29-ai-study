@@ -8,8 +8,8 @@ SYSTEM_PROMPT = """
 목표:
 한식(Korean), 중식(Chinense), 일식(Japanese), 양식(Western) 중 가장 적합한 요리 스타일을 선택하고 선택한 이유를 응답합니다.
 
-출력 형식:
-반드시 아래 형식의 JSON만 반환하세요.
+출력 형식 예시:
+반드시 아래 형식의 JSON만 반환하세요. recipe_type과 recipe_type_reason은 입력으로 받은 재료 정보들과 사용자 상태 정보들을 분석하여 상황에 맞게 판단한 결과를 출력하십시오. 예시와 동일한 이유를 출력하지 말고 자신의 unique한 판단 이유를 작성하십시오.
 
 {
   "recipe_type": "한식",
@@ -20,7 +20,7 @@ SYSTEM_PROMPT = """
 
 {
     "recipe_type": null,
-    "recipe_type_reason": null
+    "recipe_type_reason": "ERRORRRRRRRRRRRRRRRR!!!!!"
 }
 
 마크다운 금지.
