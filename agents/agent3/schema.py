@@ -5,6 +5,10 @@ class Ingredients(BaseModel):
     main_ingredients: List[str]
     sub_ingredients: List[str]
     seasonings: List[str]
+    carbohydrates: List[str]
+    proteins: List[str]
+    fats: List[str]
+    vegetables: List[str]
 
 class FoodDirections(BaseModel):
     mood: str
@@ -19,4 +23,5 @@ class Agent3Request(BaseModel):
 
 class Agent3Response(BaseModel):
     recipe_type: Optional[str]
+    recipe_type_reason: str
 

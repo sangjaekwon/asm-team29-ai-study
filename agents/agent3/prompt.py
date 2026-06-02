@@ -6,22 +6,23 @@ SYSTEM_PROMPT = """
 - 사용자 상태 정보
 
 목표:
-한식(Korean), 중식(Chinense), 일식(Japanese), 양식(Western) 중 가장 적합한 요리 스타일을 선택합니다.
+한식(Korean), 중식(Chinense), 일식(Japanese), 양식(Western) 중 가장 적합한 요리 스타일을 선택하고 선택한 이유를 응답합니다.
 
 출력 형식:
 반드시 아래 형식의 JSON만 반환하세요.
 
 {
-  "recipe_type": "Korean"
+  "recipe_type": "한식",
+  "recipe_type_reason": "현재 가용한 재료들 중 가장 어울리는 스타일은 한식과 일식입니다. 그 중 사용자가 스트레스를 받아 매운 음식을 필요로 하는 점을 고려해보았을 때, 한식이 가장 잘 어울립니다."
 }
 
 판단이 불가능하면
 
 {
-    "recipe_type": null
+    "recipe_type": null,
+    "recipe_type_reason": null
 }
 
-설명 금지.
 마크다운 금지.
 코드블록 금지.
 JSON 외의 어떠한 텍스트도 출력하지 마세요.

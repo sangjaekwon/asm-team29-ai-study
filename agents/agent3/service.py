@@ -43,6 +43,7 @@ class Agent3Service:
             raise
         
         return Agent3Response(
-                recipe_type=data.get("recipe_type")
+                recipe_type=data.get("recipe_type"),
+                recipe_type_reason=data.get("recipe_type_reason")
                 )
 
