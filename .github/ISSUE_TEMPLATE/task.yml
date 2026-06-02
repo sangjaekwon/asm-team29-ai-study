@@ -1,0 +1,85 @@
+name: "✅ Task / TODO"
+description: "작업 단위(리팩터링/개선/정리/운영 등) 템플릿"
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 목표(한 줄)
+      placeholder: "예) 검색 에이전트 기능 리팩터링"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 배경 / 맥락
+      placeholder: "- 현재 문제\n- 왜 지금 해야 하는지\n- 기대 효과"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: TODO 체크리스트
+      options:
+        - label: 범위 정의(인/아웃 스코프)
+        - label: 설계/인터페이스 정리(API/스키마/이벤트)
+        - label: 구현
+        - label: 테스트 추가/수정
+        - label: 문서 업데이트(README/노션/스웨거)
+        - label: 배포/릴리즈 노트 반영(필요 시)
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 상세 작업(자유형)
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 우선순위
+      options:
+        - P0 (긴급)
+        - P1 (높음)
+        - P2 (보통)
+        - P3 (낮음)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 범위
+      options:
+        - FE
+        - BE
+        - INFRA
+        - DATA
+        - DOCS
+        - OTHER
+    validations:
+      required: true
+
+  - type: input
+    id: due
+    attributes:
+      label: 목표 일정(선택)
+      placeholder: "YYYY-MM-DD"
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 참고
+      placeholder: "- 관련 이슈/PR\n- 링크"
+    validations:
+      required: false

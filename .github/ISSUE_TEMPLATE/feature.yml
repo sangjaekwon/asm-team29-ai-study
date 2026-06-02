@@ -1,0 +1,79 @@
+name: "✨ Feature Request"
+description: "기능 추가/개선 요청 템플릿"
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표(무엇을)
+      placeholder: "예) 검색 에이전트 기능 추가"
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 배경(왜)
+      placeholder: "예) 검색 에이전트 기능이 있으면 사용자가 검색 결과를 더 쉽게 탐색할 수 있다"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안 내용(어떻게)
+      placeholder: |
+        - 플로우:
+          1) 검색어 입력
+          2) 검색 결과 표시
+        - 상태/이벤트:
+          - SEARCH_REQUESTED -> SEARCH_RESULTS_DISPLAYED
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: 완료 조건(AC)
+      options:
+        - label: 기능 요구사항이 문서화되어 있다(명세/노션/스웨거 등)
+        - label: 정상/예외 케이스가 정의되어 있다
+        - label: 테스트(단위/통합)가 추가되어 있다
+        - label: 배포 후 검증 방법이 적혀 있다
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 우선순위
+      options:
+        - P0 (긴급)
+        - P1 (높음)
+        - P2 (보통)
+        - P3 (낮음)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 범위
+      options:
+        - FE
+        - BE
+        - INFRA
+        - DATA
+        - DOCS
+        - OTHER
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 참고 링크
+      placeholder: "- 관련 이슈/PR\n- 노션/피그마\n- API 문서"
+    validations:
+      required: false
