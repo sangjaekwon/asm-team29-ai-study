@@ -4,17 +4,9 @@ from pydantic import BaseModel, Field
 from agents.graph import run_recipe_graph
 from agents.schemas import AgentState
 
-from api.agent3 import router as agent3_router
-
 app = FastAPI(
-        title="Agent3 API",
+        title="Recommend API",
         version="1.0.0"
-        )
-
-app.include_router(
-        agent3_router,
-        prefix="/agent3",
-        tags=["Agent3"]
         )
 
 @app.get("/")

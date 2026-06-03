@@ -1,5 +1,6 @@
 from agents.agent3.service import Agent3Service
-from agents.schemas import IngredientInfo, FoodDirections, CuisineRouterOutput
+from agents.agent3.node import route_cuisine
+from agents.schemas import AgentState, IngredientInfo, FoodDirections, CuisineRouterOutput
 
 def test_agent3_classify():
     service = Agent3Service()
@@ -24,6 +25,7 @@ def test_agent3_classify():
             ingredient_info=ingredient_info,
             food_directions=food_directions
             )
+    print(result.model_dump())
 
     assert isinstance(result, CuisineRouterOutput)
     assert result.recipe_type in [
@@ -35,4 +37,25 @@ def test_agent3_classify():
     assert isinstance(result.recipe_type_reason, str)
     assert len(result.recipe_type_reason) > 0
 
+def test_route_cuisine_node():
+    state: AgentState = {
+        "ingredient_info": IngredientInfo(
+            main_ingredients=["계란", "밥"]
+        ),
+        "food_directions": FoodDirections(
+            mood="배고픔",
+            difficulty="easy"
+        )
+    }
+
+    result = route_cuisine(state)
     print(result.model_dump())
+
+    assert result.recipe_type in [
+        "korean",
+        "chinese",
+        "japanese",
+        "western"
+    ]
+
+    assert len(result.recipe_type_reason) > 0

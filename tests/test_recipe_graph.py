@@ -27,3 +27,24 @@ def test_recipe_graph_compiles():
     graph = build_recipe_graph()
 
     assert graph is not None
+
+def test_recipe_graph_uses_agent3_node():
+    result = run_recipe_graph(
+        {
+            "user_input_ingredients": ["계란", "밥"],
+            "user_mood_input": "배고픔",
+            "user_situation_input": "집에서 간단히 먹고 싶음",
+            "servings": 1,
+        }
+    )
+
+    assert "recipe_type" in result
+    assert result["recipe_type"] in [
+        "korean",
+        "chinese",
+        "japanese",
+        "western"
+    ]
+    assert "recipe_type_reason" in result
+    assert isinstance(result["recipe_type_reason"], str)
+    assert len(result["recipe_type_reason"]) > 0
