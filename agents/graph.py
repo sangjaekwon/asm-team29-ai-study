@@ -2,43 +2,18 @@
 
 from langgraph.graph import END, StateGraph
 
+from agents.agent1.service import analyze_ingredients
 from agents.agent5.service import generate_recipe
 from agents.schemas import (
     AgentState,
     CandidateFood,
     ContextAnalyzerOutput,
     CuisineRouterOutput,
-    DetectedIngredient,
     FoodDirections,
-    IngredientAnalyzerOutput,
-    IngredientInfo,
     RecipeRouterOutput,
     SelectedRecipe,
 )
-
-
-def analyze_ingredients(state: AgentState) -> IngredientAnalyzerOutput:
-    """1번 에이전트 구현 전까지 사용하는 재료 분석 stub."""
-
-    ingredients = state.get("user_input_ingredients", [])
-    detected = [
-        DetectedIngredient(
-            name=ingredient,
-            category="main",
-            nutrition_type="protein" if ingredient == "계란" else "carbohydrate",
-            source="manual",
-        )
-        for ingredient in ingredients
-    ]
-
-    return IngredientAnalyzerOutput(
-        detected_ingredients=detected,
-        available_ingredients=ingredients,
-        ingredient_info=IngredientInfo(main_ingredients=ingredients),
-        vision_status="success",
-        vision_message="사용자가 입력한 재료를 사용했습니다.",
-    )
-
+"""1번 에이전트 구현을 시작함에 따라, 이전 stub는 삭제할게요~"""
 
 def analyze_context(state: AgentState) -> ContextAnalyzerOutput:
     """2번 에이전트 구현 전까지 사용하는 상황 분석 stub."""
