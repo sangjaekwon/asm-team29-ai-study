@@ -1,0 +1,75 @@
+name: "🐛 Bug Report"
+description: "버그 제보 템플릿"
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: "버그를 한 줄로 요약"
+      placeholder: "예) 검색 에이전트가 검색 결과를 제대로 표시하지 못함"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법 (Steps to Reproduce)
+      description: "순서대로 적어주세요"
+      placeholder: |
+        1) ...
+        2) ...
+        3) ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 결과 (Expected)
+      placeholder: "예) "
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 결과 (Actual)
+      placeholder: "예) 검색 결과가 비어있음"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 심각도 (Severity)
+      options:
+        - S0 (서비스 중단)
+        - S1 (핵심 기능 장애)
+        - S2 (부분 장애/우회 가능)
+        - S3 (경미/UX)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 영향 범위
+      options:
+        - FE
+        - BE
+        - INFRA
+        - DATA
+        - OTHER
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그/스크린샷/추가 정보
+      description: "에러 로그, 캡처, 관련 링크"
+      placeholder: "- 로그\n- 스크린샷\n- 관련 이슈/PR"
+    validations:
+      required: false
