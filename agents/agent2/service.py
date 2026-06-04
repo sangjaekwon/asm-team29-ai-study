@@ -4,8 +4,9 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from agents.schemas import ContextAnalyzerOutput, FoodDirections
+
 from .prompt import SYSTEM_PROMPT
-from .schema import Agent2Request, Agent2Response
 
 
 load_dotenv()
@@ -16,7 +17,7 @@ client = OpenAI(
 )
 
 
-DEFAULT_RESPONSE = Agent2Response(
+DEFAULT_DIRECTIONS = FoodDirections(
     mood="",
     situation="",
     fatigue_level="medium",
@@ -28,9 +29,18 @@ DEFAULT_RESPONSE = Agent2Response(
 
 
 class Agent2Service:
-    def analyze(self, request: Agent2Request) -> Agent2Response:
-        if not request.user_mood_input.strip() and not request.user_situation_input.strip():
-            return DEFAULT_RESPONSE.model_copy()
+    def analyze(
+        self,
+        user_mood_input: str,
+        user_situation_input: str,
+    ) -> ContextAnalyzerOutput:
+        if not user_mood_input.strip() and not user_situation_input.strip():
+            return ContextAnalyzerOutput(food_directions=DEFAULT_DIRECTIONS.model_copy())
+
+        payload = {
+            "user_mood_input": user_mood_input,
+            "user_situation_input": user_situation_input,
+        }
 
         response = client.chat.completions.create(
             model="solar-mini",
@@ -41,7 +51,7 @@ class Agent2Service:
                 },
                 {
                     "role": "user",
-                    "content": request.model_dump_json(indent=2),
+                    "content": json.dumps(payload, ensure_ascii=False, indent=2),
                 },
             ],
         )
@@ -55,12 +65,14 @@ class Agent2Service:
             print(repr(result))
             raise
 
-        return Agent2Response(
-            mood=data.get("mood", ""),
-            situation=data.get("situation", ""),
-            fatigue_level=data.get("fatigue_level", "medium"),
-            difficulty=data.get("difficulty", "normal"),
-            preferred_taste=data.get("preferred_taste", ""),
-            preferred_cooking_method=data.get("preferred_cooking_method", ""),
-            cooking_time_limit_minutes=data.get("cooking_time_limit_minutes"),
+        return ContextAnalyzerOutput(
+            food_directions=FoodDirections(
+                mood=data.get("mood", ""),
+                situation=data.get("situation", ""),
+                fatigue_level=data.get("fatigue_level", "medium"),
+                difficulty=data.get("difficulty", "normal"),
+                preferred_taste=data.get("preferred_taste", ""),
+                preferred_cooking_method=data.get("preferred_cooking_method", ""),
+                cooking_time_limit_minutes=data.get("cooking_time_limit_minutes"),
+            )
         )
