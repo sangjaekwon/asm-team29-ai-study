@@ -17,26 +17,12 @@ client = OpenAI(
 )
 
 
-DEFAULT_DIRECTIONS = FoodDirections(
-    mood="",
-    situation="",
-    fatigue_level="medium",
-    difficulty="normal",
-    preferred_taste="담백한 맛",
-    preferred_cooking_method="팬 조리",
-    cooking_time_limit_minutes=20,
-)
-
-
 class Agent2Service:
     def analyze(
         self,
         user_mood_input: str,
         user_situation_input: str,
     ) -> ContextAnalyzerOutput:
-        if not user_mood_input.strip() and not user_situation_input.strip():
-            return ContextAnalyzerOutput(food_directions=DEFAULT_DIRECTIONS.model_copy())
-
         payload = {
             "user_mood_input": user_mood_input,
             "user_situation_input": user_situation_input,

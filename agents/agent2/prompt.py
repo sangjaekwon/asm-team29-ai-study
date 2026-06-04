@@ -31,17 +31,6 @@ SYSTEM_PROMPT = """
 규칙:
 - fatigue_level 은 반드시 "low", "medium", "high" 중 하나.
 - difficulty 는 반드시 "easy", "normal", "hard" 중 하나.
-- 입력이 비어 있거나 분석이 어려운 경우에도 절대 에러를 반환하지 말고 안전한 기본값으로 채워서 반환하세요.
-  기본값 예시:
-  {
-    "mood": "",
-    "situation": "",
-    "fatigue_level": "medium",
-    "difficulty": "normal",
-    "preferred_taste": "담백한 맛",
-    "preferred_cooking_method": "팬 조리",
-    "cooking_time_limit_minutes": 20
-  }
 
 마크다운 금지.
 코드블록 금지.
