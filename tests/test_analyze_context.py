@@ -1,5 +1,6 @@
+from agents.agent2.node import analyze_context
 from agents.agent2.service import Agent2Service
-from agents.schemas import ContextAnalyzerOutput, FoodDirections
+from agents.schemas import AgentState, ContextAnalyzerOutput, FoodDirections
 
 
 def test_agent2_analyze_tired():
@@ -34,12 +35,17 @@ def test_agent2_analyze_relaxed():
     assert fd.difficulty in ("normal", "hard")
 
 
-def test_agent2_analyze_empty_input_uses_default():
-    service = Agent2Service()
+def test_agent2_node_skips_when_inputs_empty():
+    state: AgentState = {"user_mood_input": "", "user_situation_input": ""}
 
-    result = service.analyze(user_mood_input="", user_situation_input="")
+    update = analyze_context(state)
 
-    assert isinstance(result, ContextAnalyzerOutput)
-    fd = result.food_directions
-    assert fd.fatigue_level == "medium"
-    assert fd.difficulty == "normal"
+    assert update == {}, "빈 입력일 땐 state 갱신 없이 비어 있어야 한다"
+
+
+def test_agent2_node_skips_when_inputs_whitespace_only():
+    state: AgentState = {"user_mood_input": "   ", "user_situation_input": "\n"}
+
+    update = analyze_context(state)
+
+    assert update == {}
