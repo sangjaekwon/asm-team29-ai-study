@@ -157,6 +157,34 @@ class Agent4RecipeRouterTest(unittest.TestCase):
         self.assertEqual(result.ingredients_to_use, ["밥", "계란"])
         self.assertEqual(result.seasonings_to_use, ["간장"])
 
+    def test_ingredient_info_seasonings_are_not_mixed_into_ingredients_to_use(self):
+        result = route_recipe(
+            {
+                "available_ingredients": ["rice", "egg", "soy_sauce"],
+                "ingredient_info": {
+                    "main_ingredients": ["rice", "egg"],
+                    "sub_ingredients": [],
+                    "seasonings": ["soy_sauce"],
+                },
+                "recipe_type": "korean",
+                "candidate_foods": [
+                    {
+                        "name": "egg_rice",
+                        "recipe_type": "korean",
+                        "required_ingredients": ["rice", "egg", "soy_sauce"],
+                        "optional_ingredients": [],
+                        "seasonings": [],
+                        "difficulty": "easy",
+                        "cooking_time_minutes": 10,
+                    }
+                ],
+            }
+        )
+
+        self.assertEqual(result.route, "can_cook")
+        self.assertEqual(result.ingredients_to_use, ["rice", "egg"])
+        self.assertEqual(result.seasonings_to_use, ["soy_sauce"])
+
     def test_route_recipe_node_returns_graph_friendly_dict(self):
         result = route_recipe_node(
             {

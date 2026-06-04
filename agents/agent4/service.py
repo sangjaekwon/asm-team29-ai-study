@@ -62,6 +62,10 @@ def _collect_available_ingredients(request: RecipeRouterInput) -> list[str]:
     )
 
 
+def _collect_available_seasonings(request: RecipeRouterInput) -> set[str]:
+    return set(_normalize_items(request.ingredient_info.seasonings))
+
+
 def _candidate_pool(request: RecipeRouterInput) -> list[CandidateFood]:
     recipe_type = _normalize_recipe_type(request.recipe_type)
     return [
@@ -196,20 +200,27 @@ def _ingredients_for_recipe(
     candidate: CandidateFood,
     available_ingredients: list[str],
     substitutions: list[Substitution],
+    known_seasonings: set[str] | None = None,
 ) -> list[str]:
     available = set(available_ingredients)
+    seasonings = known_seasonings or set()
     replacement_by_original = {
         item.original: item.replacement for item in substitutions if item.replacement
     }
     ingredients: list[str] = []
 
     for ingredient in candidate.required_ingredients + candidate.optional_ingredients:
+        if ingredient in seasonings:
+            continue
+
         if ingredient in available:
             ingredients.append(ingredient)
             continue
 
         replacement = replacement_by_original.get(ingredient)
         if replacement:
+            if replacement in seasonings:
+                continue
             ingredients.append(replacement)
 
     return _normalize_items(ingredients)
@@ -218,11 +229,18 @@ def _ingredients_for_recipe(
 def _seasonings_for_recipe(
     candidate: CandidateFood,
     available_ingredients: list[str],
+    known_seasonings: set[str] | None = None,
 ) -> list[str]:
     available = set(available_ingredients)
+    seasonings_from_info = known_seasonings or set()
     seasonings = [
         seasoning for seasoning in candidate.seasonings if seasoning in available
     ]
+    seasonings.extend(
+        ingredient
+        for ingredient in candidate.required_ingredients + candidate.optional_ingredients
+        if ingredient in seasonings_from_info and ingredient in available
+    )
 
     if not seasonings and candidate.seasonings:
         seasonings = candidate.seasonings[:1]
@@ -264,6 +282,7 @@ def route_recipe(data: RecipeRouterInput | Mapping[str, Any]) -> RecipeRouterOut
     request = _coerce_request(data)
     candidates = _candidate_pool(request)
     available_ingredients = _collect_available_ingredients(request)
+    available_seasonings = _collect_available_seasonings(request)
     allow_additional = request.ingredient_policy == "allow_additional"
 
     if not request.candidate_foods:
@@ -325,10 +344,12 @@ def route_recipe(data: RecipeRouterInput | Mapping[str, Any]) -> RecipeRouterOut
             selected_candidate,
             available_ingredients,
             selected_evaluation.substitutions,
+            available_seasonings,
         )
         seasonings_to_use = _seasonings_for_recipe(
             selected_candidate,
             available_ingredients,
+            available_seasonings,
         )
 
     return RecipeRouterOutput(
