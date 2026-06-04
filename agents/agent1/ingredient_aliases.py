@@ -59,7 +59,7 @@ STANDARD_INGREDIENT_GROUPS: dict[str, tuple[str, ...]] = {
     "쪽파": ("chive", "chives", "small green onion"),
     "부추": ("garlic chive", "garlic chives", "buchu"),
     "마늘": ("garlic", "garlic clove", "garlic cloves"),
-    "다진마늘": ("minced garlic", "crushed garlic"),
+    "다진마늘": ("minced garlic", "crushed garlic", "간마늘"),
     "생강": ("ginger",),
     "당근": ("carrot", "carrots"),
     "양배추": ("cabbage", "green cabbage"),
@@ -162,6 +162,24 @@ for standard_name, aliases in STANDARD_INGREDIENT_GROUPS.items():
 
 GENERIC_DETECTION_LABELS = {"food", "vegetable", "vegetables", "bottle", "jar", "drink", "beverage", "음식", "채소", "병", "음료"}
 
+CONFIRMATION_CANDIDATES: dict[str, tuple[str, ...]] = {
+    "vegetable": ("청경채", "대파", "양파", "고추", "양배추", "애호박"),
+    "vegetables": ("청경채", "대파", "양파", "고추", "양배추", "애호박"),
+    "green vegetable": ("청경채", "시금치", "상추", "깻잎", "대파"),
+    "채소": ("청경채", "대파", "양파", "고추", "양배추", "애호박"),
+    "mushroom": ("느타리버섯", "팽이버섯", "새송이버섯", "표고버섯", "양송이버섯"),
+    "버섯": ("느타리버섯", "팽이버섯", "새송이버섯", "표고버섯", "양송이버섯"),
+    "green onion": ("대파", "쪽파", "부추"),
+    "green leek": ("대파", "쪽파", "부추"),
+    "scallion": ("대파", "쪽파", "부추"),
+    "대파": ("대파", "쪽파", "부추"),
+    "chili pepper": ("고추", "청양고추", "피망", "파프리카"),
+    "고추": ("고추", "청양고추", "피망", "파프리카"),
+    "bottle": ("간장", "식초", "참기름", "식용유", "맛술"),
+    "jar": ("고추장", "된장", "쌈장", "잼"),
+    "병": ("간장", "식초", "참기름", "식용유", "맛술"),
+}
+
 DEFAULT_DETECTOR_LABELS = [
     "green onion",
     "scallion",
@@ -215,3 +233,23 @@ def build_standard_name_prompt_rules() -> str:
         if alias_text:
             lines.append(f"- {alias_text} => {standard_name}")
     return "\n".join(lines)
+
+
+def suggest_confirmation_candidates(name: str, original_label: str = "") -> list[str]:
+    keys = [
+        original_label.strip().lower(),
+        name.strip().lower(),
+        standardize_ingredient_name(name).lower(),
+    ]
+    candidates: list[str] = []
+
+    for key in keys:
+        for candidate in CONFIRMATION_CANDIDATES.get(key, ()):
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+    standard_name = standardize_ingredient_name(name)
+    if standard_name and standard_name not in candidates:
+        candidates.insert(0, standard_name)
+
+    return candidates[:6]

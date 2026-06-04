@@ -7,6 +7,8 @@ API 키가 없거나 LLM 응답을 사용할 수 없는 경우 규칙 기반 fal
 
 import json
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -18,10 +20,13 @@ from agents.agent1.ingredient_aliases import (
     GENERIC_DETECTION_LABELS,
     build_standard_name_prompt_rules,
     standardize_ingredient_name,
+    suggest_confirmation_candidates,
 )
 from agents.schemas import (
     AgentState,
     DetectedIngredient,
+    IngredientConfirmationInput,
+    IngredientConfirmationOption,
     IngredientAnalyzerOutput,
     IngredientCategory,
     IngredientInfo,
@@ -38,6 +43,7 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.7
 DEFAULT_DETECTOR_BACKEND = "owlv2"
 DEFAULT_DETECTOR_MODEL = "google/owlv2-base-patch16-ensemble"
 DEFAULT_DETECTOR_THRESHOLD = 0.25
+DEFAULT_ANNOTATION_OUTPUT_DIR = "runtime_outputs/agent1"
 TEST_API_KEYS = {"", "test", "dummy", "your_upstage_api_key_here"}
 VALID_CATEGORIES = {"main", "sub", "seasoning"}
 VALID_NUTRITION_TYPES = {
@@ -129,6 +135,14 @@ def _get_detector_labels() -> list[str]:
     return [label.strip() for label in labels.split(",") if label.strip()]
 
 
+def _get_annotation_output_dir() -> str:
+    output_dir = os.getenv(
+        "AGENT1_ANNOTATION_OUTPUT_DIR",
+        DEFAULT_ANNOTATION_OUTPUT_DIR,
+    ).strip()
+    return output_dir or DEFAULT_ANNOTATION_OUTPUT_DIR
+
+
 def _should_call_solar() -> bool:
     return _get_solar_api_key().lower() not in TEST_API_KEYS
 
@@ -148,6 +162,18 @@ def _unique_ingredients(ingredients: list[str]) -> list[str]:
         if cleaned and cleaned not in unique:
             unique.append(cleaned)
     return unique
+
+
+def _parse_ingredient_text(text: str) -> list[str]:
+    if not text.strip():
+        return []
+
+    if re.search(r"[,;\n]", text):
+        tokens = re.split(r"[,;\n]+", text)
+    else:
+        tokens = text.split()
+
+    return [_clean_name(token) for token in tokens if _clean_name(token)]
 
 
 def _get_confidence_threshold(state: AgentState) -> float:
@@ -209,6 +235,18 @@ def _deduplicate_detected_ingredients(
     return unique
 
 
+def _coerce_detected_ingredients(items: Any) -> list[DetectedIngredient]:
+    detected: list[DetectedIngredient] = []
+
+    for item in items or []:
+        try:
+            detected.append(DetectedIngredient.model_validate(item))
+        except ValidationError:
+            continue
+
+    return detected
+
+
 def _build_ingredient_info(detected_ingredients: list[DetectedIngredient]) -> IngredientInfo:
     info = IngredientInfo()
 
@@ -237,6 +275,7 @@ def _build_raw_result(
     analysis_source: str,
     llm_result: dict[str, Any] | None = None,
     detections: list[ImageDetection] | None = None,
+    annotated_image_path: str = "",
     vision_status: str = "not_connected",
     error: str = "",
 ) -> dict[str, Any]:
@@ -244,6 +283,7 @@ def _build_raw_result(
         "image_path": state.get("image_path", ""),
         "image_id": state.get("image_id", ""),
         "analysis_source": analysis_source,
+        "annotated_image_path": annotated_image_path,
         "vision_status": vision_status,
         "vision_message": (
             "이미지 분석을 수행했습니다."
@@ -260,6 +300,229 @@ def _build_raw_result(
         result["error"] = error
 
     return result
+
+
+def _get_annotation_output_path(state: AgentState) -> str:
+    output_path = state.get("annotation_output_path", "")
+    if output_path:
+        return output_path
+
+    image_path = state.get("image_path", "")
+    if not image_path:
+        return ""
+
+    image_stem = Path(image_path).stem or "agent1"
+    return str(Path(_get_annotation_output_dir()) / f"{image_stem}_agent1_annotated.png")
+
+
+def _load_annotation_font(size: int):
+    from PIL import ImageFont
+
+    font_candidates = [
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "C:/Windows/Fonts/malgun.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ]
+    for font_path in font_candidates:
+        if os.path.exists(font_path):
+            return ImageFont.truetype(font_path, size=size)
+
+    return ImageFont.load_default()
+
+
+def _matched_detector_label(
+    ingredient: DetectedIngredient,
+    detections: list[ImageDetection],
+) -> str:
+    for detection in detections:
+        if detection.boundary_box == ingredient.boundary_box:
+            return detection.original_label or detection.label
+
+    return ""
+
+
+def _annotation_caption(
+    ingredient: DetectedIngredient,
+    detections: list[ImageDetection],
+) -> str:
+    confidence_percent = round(ingredient.confidence * 100)
+    detector_label = _matched_detector_label(ingredient, detections)
+    first_line = f"{ingredient.name} {confidence_percent}%"
+
+    if detector_label and detector_label != ingredient.name:
+        return f"{first_line}\n{detector_label}"
+
+    return first_line
+
+
+def _rects_overlap(first: list[int], second: list[int]) -> bool:
+    return not (
+        first[2] <= second[0]
+        or first[0] >= second[2]
+        or first[3] <= second[1]
+        or first[1] >= second[3]
+    )
+
+
+def _place_annotation_label(
+    box: list[int],
+    text_width: int,
+    text_height: int,
+    image_width: int,
+    image_height: int,
+    padding: int,
+    occupied_rects: list[list[int]],
+) -> list[int]:
+    x1, y1, x2, y2 = box
+    label_width = text_width + (padding * 2)
+    label_height = text_height + (padding * 2)
+    candidate_points = [
+        (x1, y1 - label_height - padding),
+        (x1, y2 + padding),
+        (x2 - label_width, y1 - label_height - padding),
+        (x2 - label_width, y2 + padding),
+        (x1, y1 + padding),
+        (x2 + padding, y1),
+    ]
+
+    for point_x, point_y in candidate_points:
+        label_x = max(0, min(point_x, image_width - label_width))
+        label_y = max(0, min(point_y, image_height - label_height))
+        rect = [
+            int(label_x),
+            int(label_y),
+            int(label_x + label_width),
+            int(label_y + label_height),
+        ]
+        if not any(_rects_overlap(rect, occupied) for occupied in occupied_rects):
+            return rect
+
+    label_x = max(0, min(x1, image_width - label_width))
+    label_y = max(0, min(y1 - label_height - padding, image_height - label_height))
+    return [
+        int(label_x),
+        int(label_y),
+        int(label_x + label_width),
+        int(label_y + label_height),
+    ]
+
+
+def _create_annotated_image(
+    state: AgentState,
+    detected_ingredients: list[DetectedIngredient],
+    detections: list[ImageDetection],
+) -> str:
+    image_path = state.get("image_path", "")
+    output_path = _get_annotation_output_path(state)
+
+    if not image_path or not output_path or not os.path.exists(image_path):
+        return ""
+    if not any(ingredient.boundary_box for ingredient in detected_ingredients):
+        return ""
+
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return ""
+
+    image = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    font_size = max(30, min(42, image.width // 40))
+    font = _load_annotation_font(size=font_size)
+    stroke_width = max(4, image.width // 300)
+    padding = max(6, font_size // 5)
+    occupied_rects: list[list[int]] = []
+
+    for ingredient in detected_ingredients:
+        box = ingredient.boundary_box
+        if len(box) != 4:
+            continue
+
+        x1, y1, x2, y2 = box
+        color = "red" if ingredient.needs_confirmation else "lime"
+        caption = _annotation_caption(ingredient, detections)
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=stroke_width)
+
+        text_box = draw.multiline_textbbox((0, 0), caption, font=font, spacing=2)
+        text_width = text_box[2] - text_box[0]
+        text_height = text_box[3] - text_box[1]
+        background = _place_annotation_label(
+            box,
+            text_width,
+            text_height,
+            image.width,
+            image.height,
+            padding,
+            occupied_rects,
+        )
+        draw.rectangle(background, fill="black")
+        draw.multiline_text(
+            (background[0] + padding, background[1] + padding),
+            caption,
+            fill=color,
+            font=font,
+            spacing=2,
+        )
+        occupied_rects.append(background)
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path)
+    return output_path
+
+
+def _confirmation_reason(
+    ingredient: DetectedIngredient,
+    detection: ImageDetection | None,
+    threshold: float,
+) -> str:
+    reasons: list[str] = []
+    label_keys = {ingredient.name.strip().lower()}
+
+    if detection is not None:
+        label_keys.add(detection.label.strip().lower())
+        label_keys.add(detection.original_label.strip().lower())
+        if detection.confidence < threshold:
+            reasons.append("detector confidence가 기준값보다 낮습니다.")
+        if label_keys & GENERIC_DETECTION_LABELS:
+            reasons.append("detector가 너무 일반적인 라벨로 판단했습니다.")
+
+    if ingredient.needs_confirmation:
+        reasons.append("LLM 또는 이전 단계에서 사용자 확인이 필요하다고 판단했습니다.")
+
+    return " ".join(reasons) or "사용자 확인이 필요합니다."
+
+
+def _build_confirmation_options(
+    detected_ingredients: list[DetectedIngredient],
+    detections: list[ImageDetection],
+    threshold: float,
+) -> list[IngredientConfirmationOption]:
+    options: list[IngredientConfirmationOption] = []
+
+    for index, ingredient in enumerate(detected_ingredients):
+        if not ingredient.needs_confirmation:
+            continue
+
+        detection = detections[index] if index < len(detections) else None
+        options.append(
+            IngredientConfirmationOption(
+                name=ingredient.name,
+                boundary_box=ingredient.boundary_box,
+                confidence=ingredient.confidence,
+                reason=_confirmation_reason(ingredient, detection, threshold),
+                candidates=suggest_confirmation_candidates(
+                    ingredient.name,
+                    detection.original_label if detection is not None else "",
+                ),
+                allow_manual_input=True,
+            )
+        )
+
+    return options
 
 
 def detect_ingredients_from_image(image_path: str) -> list[ImageDetection]:
@@ -555,6 +818,203 @@ def _call_solar_ingredient_analyzer(
     return _deduplicate_detected_ingredients(detected_ingredients), parsed
 
 
+def _coerce_confirmation_input(state: AgentState) -> IngredientConfirmationInput | None:
+    raw_confirmation = state.get("ingredient_confirmation")
+
+    if raw_confirmation:
+        try:
+            return IngredientConfirmationInput.model_validate(raw_confirmation)
+        except ValidationError:
+            return None
+
+    confirmed_ingredients = state.get("confirmed_ingredients", [])
+    if confirmed_ingredients:
+        return IngredientConfirmationInput(accepted_ingredients=confirmed_ingredients)
+
+    return None
+
+
+def _has_confirmation_input(state: AgentState) -> bool:
+    confirmation = _coerce_confirmation_input(state)
+    if confirmation is None:
+        return False
+
+    return bool(
+        confirmation.accepted_ingredients
+        or confirmation.rejected_ingredients
+        or confirmation.replacements
+        or confirmation.additional_ingredients
+        or confirmation.additional_ingredients_text.strip()
+    )
+
+
+def _ingredient_metadata_by_name(
+    detected_ingredients: list[DetectedIngredient],
+) -> dict[str, DetectedIngredient]:
+    metadata: dict[str, DetectedIngredient] = {}
+
+    for ingredient in detected_ingredients:
+        metadata[_standardize_alias(ingredient.name)] = ingredient
+
+    return metadata
+
+
+def _confirmed_names_from_state(state: AgentState) -> list[str]:
+    confirmation = _coerce_confirmation_input(state)
+    if confirmation is None:
+        return []
+
+    if state.get("confirmed_ingredients"):
+        base_names = [
+            _standardize_alias(name)
+            for name in state.get("confirmed_ingredients", [])
+        ]
+    else:
+        previous_ingredients = _coerce_detected_ingredients(
+            state.get("detected_ingredients", [])
+        )
+        rejected = {
+            _standardize_alias(name)
+            for name in confirmation.rejected_ingredients
+        }
+        replacements = {
+            _standardize_alias(source): target
+            for source, target in confirmation.replacements.items()
+            if _clean_name(source) and _clean_name(target)
+        }
+        base_names = []
+
+        for ingredient in previous_ingredients:
+            original_name = _standardize_alias(ingredient.name)
+            if original_name in rejected:
+                continue
+
+            base_names.append(_standardize_alias(replacements.get(original_name, original_name)))
+
+        for accepted in confirmation.accepted_ingredients:
+            base_names.append(_standardize_alias(accepted))
+
+    additions = [
+        _standardize_alias(name)
+        for name in confirmation.additional_ingredients
+    ]
+    additions.extend(
+        _standardize_alias(name)
+        for name in _parse_ingredient_text(confirmation.additional_ingredients_text)
+    )
+
+    return _unique_ingredients(base_names + additions)
+
+
+def _build_user_confirmed_output(
+    state: AgentState,
+) -> dict[str, Any]:
+    confirmed_names = _confirmed_names_from_state(state)
+    previous_ingredients = _coerce_detected_ingredients(
+        state.get("detected_ingredients", [])
+    )
+    previous_metadata = _ingredient_metadata_by_name(previous_ingredients)
+    confirmation = _coerce_confirmation_input(state)
+    if confirmation is not None:
+        for source, target in confirmation.replacements.items():
+            source_name = _standardize_alias(source)
+            target_name = _standardize_alias(target)
+            if source_name in previous_metadata and target_name not in previous_metadata:
+                previous_metadata[target_name] = previous_metadata[source_name]
+
+    if not confirmed_names:
+        return IngredientAnalyzerOutput(
+            detected_ingredients=[],
+            uncertain_ingredients=[],
+            available_ingredients=[],
+            ingredient_info=IngredientInfo(),
+            confirmation_options=[],
+            vision_status="no_ingredient_detected",
+            vision_message="사용자가 확정한 재료가 없습니다.",
+            raw_vision_result=_build_raw_result(
+                state,
+                analysis_source="user_confirmation",
+                vision_status="success",
+            ),
+        ).model_dump()
+
+    try:
+        if _should_call_solar():
+            detected_ingredients, llm_result = _call_solar_ingredient_analyzer(
+                confirmed_names
+            )
+        else:
+            detected_ingredients = [
+                _build_detected_ingredient(name, source="user_confirmed")
+                for name in confirmed_names
+            ]
+            llm_result = {
+                "ingredients": confirmed_names,
+                "message": "사용자 확인 재료를 규칙 기반으로 확정했습니다.",
+            }
+    except (KeyError, TypeError, ValueError, ValidationError, json.JSONDecodeError) as exc:
+        detected_ingredients = [
+            _build_detected_ingredient(name, source="user_confirmed")
+            for name in confirmed_names
+        ]
+        llm_result = {
+            "ingredients": confirmed_names,
+            "message": "Solar 응답 파싱 실패로 규칙 기반 확정 결과를 사용했습니다.",
+            "error": str(exc),
+        }
+    except Exception as exc:
+        detected_ingredients = [
+            _build_detected_ingredient(name, source="user_confirmed")
+            for name in confirmed_names
+        ]
+        llm_result = {
+            "ingredients": confirmed_names,
+            "message": "Solar 호출 실패로 규칙 기반 확정 결과를 사용했습니다.",
+            "error": str(exc),
+        }
+
+    confirmed_detected: list[DetectedIngredient] = []
+    for ingredient in _deduplicate_detected_ingredients(detected_ingredients):
+        metadata = previous_metadata.get(_standardize_alias(ingredient.name))
+        update: dict[str, Any] = {
+            "source": "user_confirmed",
+            "confidence": 1.0,
+            "needs_confirmation": False,
+        }
+        if metadata is not None:
+            update["boundary_box"] = metadata.boundary_box
+
+        confirmed_detected.append(ingredient.model_copy(update=update))
+
+    annotated_image_path = _create_annotated_image(state, confirmed_detected, [])
+
+    return IngredientAnalyzerOutput(
+        detected_ingredients=confirmed_detected,
+        uncertain_ingredients=[],
+        available_ingredients=[ingredient.name for ingredient in confirmed_detected],
+        ingredient_info=_build_ingredient_info(confirmed_detected),
+        confirmation_options=[],
+        annotated_image_path=annotated_image_path,
+        vision_status="success",
+        vision_message="사용자가 확인한 재료를 최종 확정했습니다.",
+        raw_vision_result=_build_raw_result(
+            state,
+            analysis_source="user_confirmation",
+            llm_result=llm_result,
+            annotated_image_path=annotated_image_path,
+            vision_status="success",
+        )
+        | {
+            "ingredient_confirmation": _coerce_confirmation_input(state).model_dump()
+            if _coerce_confirmation_input(state)
+            else {},
+            "previous_detected_ingredients": [
+                ingredient.model_dump() for ingredient in previous_ingredients
+            ],
+        },
+    ).model_dump()
+
+
 def _analyze_with_rules(
     state: AgentState,
     detections: list[ImageDetection] | None = None,
@@ -569,6 +1029,7 @@ def _analyze_with_rules(
             uncertain_ingredients=[],
             available_ingredients=[],
             ingredient_info=IngredientInfo(),
+            confirmation_options=[],
             vision_status="no_ingredient_detected",
             vision_message="사용 가능한 재료가 입력되지 않았습니다.",
             raw_vision_result=_build_raw_result(
@@ -594,18 +1055,35 @@ def _analyze_with_rules(
         if ingredient.needs_confirmation
     ]
     vision_status = "need_user_confirmation" if uncertain_ingredients else "success"
+    confirmation_options = _build_confirmation_options(
+        detected_ingredients,
+        detections,
+        _get_confidence_threshold(state),
+    )
+    annotated_image_path = _create_annotated_image(
+        state,
+        detected_ingredients,
+        detections,
+    )
 
     return IngredientAnalyzerOutput(
         detected_ingredients=detected_ingredients,
         uncertain_ingredients=uncertain_ingredients,
         available_ingredients=ingredients,
         ingredient_info=_build_ingredient_info(detected_ingredients),
+        confirmation_options=confirmation_options,
+        annotated_image_path=annotated_image_path,
         vision_status=vision_status,
-        vision_message="사용자 입력 재료를 규칙 기반으로 표준화하고 분류했습니다.",
+        vision_message=(
+            "인식 결과 확인이 필요합니다. 누락된 재료가 있으면 직접 추가하세요."
+            if confirmation_options
+            else "사용자 입력 재료를 규칙 기반으로 표준화하고 분류했습니다."
+        ),
         raw_vision_result=_build_raw_result(
             state,
             analysis_source="detector" if detections else "rules",
             detections=detections,
+            annotated_image_path=annotated_image_path,
             vision_status="success" if detections else "not_connected",
             error=error,
         ),
@@ -632,6 +1110,7 @@ def _build_llm_output(
             uncertain_ingredients=[],
             available_ingredients=[],
             ingredient_info=IngredientInfo(),
+            confirmation_options=[],
             vision_status="no_ingredient_detected",
             vision_message="Solar API가 사용 가능한 재료를 찾지 못했습니다.",
             raw_vision_result=_build_raw_result(
@@ -651,19 +1130,36 @@ def _build_llm_output(
 
     vision_status = "need_user_confirmation" if uncertain_ingredients else "success"
     vision_message = llm_result.get("message") or "Solar API로 재료를 표준화하고 분류했습니다."
+    confirmation_options = _build_confirmation_options(
+        detected_ingredients,
+        detections,
+        _get_confidence_threshold(state),
+    )
+    annotated_image_path = _create_annotated_image(
+        state,
+        detected_ingredients,
+        detections,
+    )
 
     return IngredientAnalyzerOutput(
         detected_ingredients=detected_ingredients,
         uncertain_ingredients=uncertain_ingredients,
         available_ingredients=[ingredient.name for ingredient in detected_ingredients],
         ingredient_info=_build_ingredient_info(detected_ingredients),
+        confirmation_options=confirmation_options,
+        annotated_image_path=annotated_image_path,
         vision_status=vision_status,
-        vision_message=vision_message,
+        vision_message=(
+            f"{vision_message} 누락된 재료가 있으면 직접 추가하세요."
+            if confirmation_options
+            else vision_message
+        ),
         raw_vision_result=_build_raw_result(
             state,
             analysis_source="solar",
             llm_result=llm_result,
             detections=detections,
+            annotated_image_path=annotated_image_path,
             vision_status="success" if detections else "not_connected",
         ),
     ).model_dump()
@@ -675,6 +1171,9 @@ def analyze_ingredients(state: AgentState) -> dict[str, Any]:
     Solar API 키가 설정되어 있으면 LLM을 우선 사용하고, 실패하면 규칙 기반
     fallback을 사용한다.
     """
+
+    if _has_confirmation_input(state):
+        return _build_user_confirmed_output(state)
 
     detections: list[ImageDetection] = []
     detector_error = ""
@@ -693,6 +1192,7 @@ def analyze_ingredients(state: AgentState) -> dict[str, Any]:
                 uncertain_ingredients=[],
                 available_ingredients=[],
                 ingredient_info=IngredientInfo(),
+                confirmation_options=[],
                 vision_status="vision_error",
                 vision_message=detector_error,
                 raw_vision_result=_build_raw_result(
