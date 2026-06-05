@@ -3,6 +3,7 @@
 from langgraph.graph import END, StateGraph
 
 from agents.agent1.service import analyze_ingredients
+from agents.agent3.node import route_cuisine
 from agents.agent5.service import generate_recipe
 from agents.schemas import (
     AgentState,
@@ -33,16 +34,6 @@ def analyze_context(state: AgentState) -> ContextAnalyzerOutput:
             cooking_time_limit_minutes=15,
         )
     )
-
-
-def route_cuisine(state: AgentState) -> CuisineRouterOutput:
-    """3번 에이전트 구현 전까지 사용하는 요리 스타일 분기 stub."""
-
-    return CuisineRouterOutput(
-        recipe_type="korean",
-        recipe_type_reason="v1에서는 간단한 한식 계열 식사로 기본 분기합니다.",
-    )
-
 
 def route_recipe(state: AgentState) -> RecipeRouterOutput:
     """4번 에이전트 구현 전까지 사용하는 가능 레시피 라우터 stub."""
