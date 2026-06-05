@@ -2,38 +2,20 @@
 
 from langgraph.graph import END, StateGraph
 
+from agents.agent2.node import analyze_context
 from agents.agent1.service import analyze_ingredients
 from agents.agent3.node import route_cuisine
 from agents.agent5.service import generate_recipe
 from agents.schemas import (
     AgentState,
     CandidateFood,
-    ContextAnalyzerOutput,
-    CuisineRouterOutput,
-    FoodDirections,
+    DetectedIngredient,
+    IngredientAnalyzerOutput,
+    IngredientInfo,
     RecipeRouterOutput,
     SelectedRecipe,
 )
 """1번 에이전트 구현을 시작함에 따라, 이전 stub는 삭제할게요~"""
-
-def analyze_context(state: AgentState) -> ContextAnalyzerOutput:
-    """2번 에이전트 구현 전까지 사용하는 상황 분석 stub."""
-
-    mood = state.get("user_mood_input", "")
-    situation = state.get("user_situation_input", "")
-    fatigue_level = "high" if "피곤" in mood else "medium"
-
-    return ContextAnalyzerOutput(
-        food_directions=FoodDirections(
-            mood=mood,
-            situation=situation,
-            fatigue_level=fatigue_level,
-            difficulty="easy",
-            preferred_taste="짭짤한 맛",
-            preferred_cooking_method="팬 조리",
-            cooking_time_limit_minutes=15,
-        )
-    )
 
 def route_recipe(state: AgentState) -> RecipeRouterOutput:
     """4번 에이전트 구현 전까지 사용하는 가능 레시피 라우터 stub."""

@@ -7,5 +7,5 @@ service = Agent3Service()
 def route_cuisine(state: AgentState) -> CuisineRouterOutput:
     return service.classify(
             ingredient_info=state["ingredient_info"],
-            food_directions=state["food_directions"]
+            food_directions=state.get("food_directions")
             )

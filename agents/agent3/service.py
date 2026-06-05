@@ -1,5 +1,7 @@
 import os
 import json
+from typing import Optional
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -14,11 +16,17 @@ client = OpenAI(
         )
 
 class Agent3Service:
-    def classify(self, ingredient_info: IngredientInfo, food_directions: FoodDirections) -> CuisineRouterOutput:
+    def classify(
+        self,
+        ingredient_info: IngredientInfo,
+        food_directions: Optional[FoodDirections] = None,
+    ) -> CuisineRouterOutput:
         payload = {
             "ingredient_info": ingredient_info.model_dump(),
-            "food_directions": food_directions.model_dump()
         }
+        if food_directions is not None:
+            payload["food_directions"] = food_directions.model_dump()
+
         response = client.chat.completions.create(
                 model="solar-mini",
                 messages=[
@@ -36,9 +44,9 @@ class Agent3Service:
                     }
                 ]
             )
-        
+
         result = response.choices[0].message.content
-        
+
         try:
             data = json.loads(result)
 
@@ -46,7 +54,7 @@ class Agent3Service:
             print("Invalid JSON response: ")
             print(repr(result))
             raise
-        
+
         return CuisineRouterOutput(
                 recipe_type=data.get("recipe_type"),
                 recipe_type_reason=data.get("recipe_type_reason")
