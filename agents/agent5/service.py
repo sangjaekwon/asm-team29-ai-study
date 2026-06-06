@@ -231,6 +231,9 @@ def generate_recipe(state: AgentState) -> dict[str, Any]:
         state.get("ingredients_to_use", []) + state.get("seasonings_to_use", [])
     )
 
+    # print(f"[agent5] selected_recipe type={type(selected_recipe)}, value={selected_recipe}")
+    # print(f"[agent5] ingredients={ingredients}")
+
     if selected_recipe is None or not ingredients:
         return {
             "generated_recipe": None,

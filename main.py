@@ -14,9 +14,6 @@ from agents.schemas import (
     IngredientConfirmationInput,
 )
 
-# from api.agent3 import router as agent3_router
-""" 머지과정중 잘못 덮어씌인부분"""
-
 RUNTIME_OUTPUTS_DIR = Path("runtime_outputs")
 UPLOAD_OUTPUTS_DIR = RUNTIME_OUTPUTS_DIR / "uploads"
 FRONTEND_DIR = Path("frontend")
@@ -40,13 +37,6 @@ if FRONTEND_DIR.exists():
             StaticFiles(directory=str(FRONTEND_DIR)),
             name="frontend"
             )
-
-# app.include_router(
-#         agent3_router,
-#         prefix="/agent3",
-#         tags=["Agent3"]
-#         )
-""" 머지과정중 잘못 덮어씌인부분"""
 
 @app.get("/")
 def root():
