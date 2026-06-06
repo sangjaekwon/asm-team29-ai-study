@@ -349,14 +349,9 @@ def _annotation_caption(
     ingredient: DetectedIngredient,
     detections: list[ImageDetection],
 ) -> str:
-    confidence_percent = round(ingredient.confidence * 100)
-    detector_label = _matched_detector_label(ingredient, detections)
-    first_line = f"{ingredient.name} {confidence_percent}%"
-
-    if detector_label and detector_label != ingredient.name:
-        return f"{first_line}\n{detector_label}"
-
-    return first_line
+    confidence = min(max(ingredient.confidence, 0.0), 1.0)
+    confidence_percent = int(round(confidence * 100))
+    return f"{ingredient.name} {confidence_percent}%"
 
 
 def _rects_overlap(first: list[int], second: list[int]) -> bool:
@@ -401,6 +396,28 @@ def _place_annotation_label(
         if not any(_rects_overlap(rect, occupied) for occupied in occupied_rects):
             return rect
 
+    step_x = max(padding * 2, label_width // 3)
+    step_y = max(padding * 2, label_height // 2)
+    x_positions = {
+        0,
+        max(0, image_width - label_width),
+        max(0, min(x1, image_width - label_width)),
+        max(0, min(x2 - label_width, image_width - label_width)),
+        max(0, min((x1 + x2 - label_width) // 2, image_width - label_width)),
+    }
+    x_positions.update(range(0, max(1, image_width - label_width + 1), step_x))
+
+    for label_y in range(0, max(1, image_height - label_height + 1), step_y):
+        for label_x in sorted(x_positions):
+            rect = [
+                int(label_x),
+                int(label_y),
+                int(label_x + label_width),
+                int(label_y + label_height),
+            ]
+            if not any(_rects_overlap(rect, occupied) for occupied in occupied_rects):
+                return rect
+
     label_x = max(0, min(x1, image_width - label_width))
     label_y = max(0, min(y1 - label_height - padding, image_height - label_height))
     return [
@@ -431,10 +448,11 @@ def _create_annotated_image(
 
     image = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(image)
-    font_size = max(30, min(42, image.width // 40))
+    font_size = max(56, min(84, image.width // 19))
     font = _load_annotation_font(size=font_size)
-    stroke_width = max(4, image.width // 300)
-    padding = max(6, font_size // 5)
+    stroke_width = max(6, image.width // 220)
+    text_stroke_width = max(2, font_size // 18)
+    padding = max(12, font_size // 4)
     occupied_rects: list[list[int]] = []
 
     for ingredient in detected_ingredients:
@@ -443,7 +461,8 @@ def _create_annotated_image(
             continue
 
         x1, y1, x2, y2 = box
-        color = "red" if ingredient.needs_confirmation else "lime"
+        color = "#d92d20" if ingredient.needs_confirmation else "#12b76a"
+        label_background = "#9b1c1c" if ingredient.needs_confirmation else "#176c43"
         caption = _annotation_caption(ingredient, detections)
         draw.rectangle([x1, y1, x2, y2], outline=color, width=stroke_width)
 
@@ -459,13 +478,15 @@ def _create_annotated_image(
             padding,
             occupied_rects,
         )
-        draw.rectangle(background, fill="black")
+        draw.rectangle(background, fill=label_background)
         draw.multiline_text(
             (background[0] + padding, background[1] + padding),
             caption,
-            fill=color,
+            fill="white",
             font=font,
             spacing=2,
+            stroke_width=text_stroke_width,
+            stroke_fill="black",
         )
         occupied_rects.append(background)
 

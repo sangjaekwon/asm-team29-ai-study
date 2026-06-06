@@ -9,14 +9,14 @@ from agents.agent4.prompt import get_prompt
 
 load_dotenv()
 
-API_KEY = os.getenv("UPSTAGE_API_KEY")
-BASE_URL = os.getenv("UPSTAGE_BASE_URL", "https://api.upstage.ai/v1")
-MODEL = os.getenv("UPSTAGE_MODEL", "solar-pro3")
+API_KEY = os.getenv("SOLAR_API_KEY")
+BASE_URL = os.getenv("SOLAR_BASE_URL", "https://api.upstage.ai/v1")
+MODEL = os.getenv("SOLAR_MODEL", "solar-pro3")
 
 
 def create_client():
     if not API_KEY:
-        raise RuntimeError("UPSTAGE_API_KEY environment variable is required.")
+        raise RuntimeError("SOLAR_API_KEY environment variable is required.")
 
     return OpenAI(
         api_key=API_KEY,
