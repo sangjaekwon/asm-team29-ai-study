@@ -18,6 +18,15 @@ from agents.agent4.schema import (
 
 _DIFFICULTY_RANK = {"easy": 1, "normal": 2, "hard": 3}
 
+_COOKING_METHOD_ALIASES: dict[str, list[str]] = {
+    "빠른 조리": ["간편 조리", "팬 조리", "볶기", "quick", "simple"],
+    "간단한 조리": ["간편 조리", "팬 조리", "볶기", "quick", "simple"],
+    "간편 조리": ["빠른 조리", "간단한 조리", "팬 조리", "볶기", "quick", "simple"],
+    "프라이팬": ["팬 조리", "볶기", "굽기", "pan"],
+    "팬": ["팬 조리", "볶기", "굽기", "pan"],
+    "pan": ["팬 조리", "볶기", "굽기", "프라이팬"],
+}
+
 _RECIPE_TYPE_ALIASES: dict[str, RecipeType] = {
     "korean": "korean",
     "한식": "korean",
@@ -75,6 +84,20 @@ def _candidate_pool(request: RecipeRouterInput) -> list[CandidateFood]:
     ]
 
 
+def _method_matches(preferred_method: str, candidate_methods: list[str]) -> bool:
+    preferred = preferred_method.strip()
+    if not preferred or not candidate_methods:
+        return True
+
+    preferred_terms = [preferred, *_COOKING_METHOD_ALIASES.get(preferred, [])]
+    for term in preferred_terms:
+        for method in candidate_methods:
+            if term in method or method in term:
+                return True
+
+    return False
+
+
 def _find_conflicts(
     candidate: CandidateFood,
     food_directions: FoodDirections,
@@ -98,11 +121,7 @@ def _find_conflicts(
 
     preferred_method = food_directions.preferred_cooking_method.strip()
     if preferred_method and candidate.cooking_methods:
-        method_matched = any(
-            preferred_method in method or method in preferred_method
-            for method in candidate.cooking_methods
-        )
-        if not method_matched:
+        if not _method_matches(preferred_method, candidate.cooking_methods):
             conflicts.append(f"cooking_method_mismatch:{preferred_method}")
 
     return conflicts
@@ -370,4 +389,3 @@ def route_recipe_node(state: Mapping[str, Any]) -> dict[str, Any]:
     """LangGraph-friendly wrapper that returns only updated state fields."""
 
     return route_recipe(state).model_dump()
-

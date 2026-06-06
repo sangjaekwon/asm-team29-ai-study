@@ -34,6 +34,9 @@ Difficulty = Literal["easy", "normal", "hard"]
 RecipeType = Literal["korean", "chinese", "japanese", "western"]
 RouteType = Literal[
     "can_cook",
+    "simple",
+    "no_ingredient",
+    "conflict",
     "simple_recipe",
     "missing_ingredient",
     "constraint_conflict",
@@ -180,7 +183,7 @@ class Substitution(BaseModel):
     """대체하거나 생략할 수 있는 재료 정보."""
 
     original: str
-    replacement: str
+    replacement: str | None = None
     reason: str = ""
 
 
@@ -188,6 +191,7 @@ class RecipeRouterOutput(BaseModel):
     """가능 레시피 라우터가 State에 기록하는 출력."""
 
     candidate_foods: list[CandidateFood] = Field(default_factory=list)
+    candidate_evaluations: list[dict[str, Any]] = Field(default_factory=list)
     route: RouteType = "can_cook"
     route_message: str = ""
     selected_recipe: SelectedRecipe | None = None
@@ -195,6 +199,7 @@ class RecipeRouterOutput(BaseModel):
     seasonings_to_use: list[str] = Field(default_factory=list)
     substitutions: list[Substitution] = Field(default_factory=list)
     additional_ingredients: list[str] = Field(default_factory=list)
+    can_pass_to_agent5: bool = False
 
 
 # ============================================================
@@ -221,6 +226,8 @@ class RecipeGeneratorOutput(BaseModel):
     generated_recipe: GeneratedRecipe | None = None
     generation_status: GenerationStatus = "success"
     generation_message: str = ""
+    recipe_generation_source: str = ""
+    recipe_generation_error: str = ""
 
 
 # ============================================================
@@ -266,6 +273,7 @@ class AgentState(TypedDict, total=False):
 
     # 4. 가능 레시피 라우터 에이전트 출력
     candidate_foods: list[CandidateFood]
+    candidate_evaluations: list[dict[str, Any]]
     route: RouteType
     route_message: str
     selected_recipe: SelectedRecipe | None
@@ -273,8 +281,11 @@ class AgentState(TypedDict, total=False):
     seasonings_to_use: list[str]
     substitutions: list[Substitution]
     additional_ingredients: list[str]
+    can_pass_to_agent5: bool
 
     # 5. 레시피 생성 에이전트 출력
     generated_recipe: GeneratedRecipe | None
     generation_status: GenerationStatus
     generation_message: str
+    recipe_generation_source: str
+    recipe_generation_error: str
