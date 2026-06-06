@@ -17,7 +17,7 @@ RUNTIME_OUTPUTS_DIR = Path("runtime_outputs")
 RUNTIME_OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
-        title="Agent3 API",
+        title="Recommend API",
         version="1.0.0"
         )
 
