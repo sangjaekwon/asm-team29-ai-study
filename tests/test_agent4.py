@@ -126,6 +126,25 @@ class Agent4RecipeRouterTest(unittest.TestCase):
         self.assertFalse(result.can_pass_to_agent5)
         self.assertIsNone(result.selected_recipe)
 
+    def test_quick_cooking_preference_matches_simple_pan_candidates(self):
+        result = route_recipe(
+            {
+                "available_ingredients": ["밥", "계란", "간장"],
+                "recipe_type": "korean",
+                "candidate_foods": [korean_egg_fried_rice_candidate()],
+                "food_directions": {
+                    "difficulty": "easy",
+                    "fatigue_level": "high",
+                    "preferred_cooking_method": "빠른 조리",
+                    "cooking_time_limit_minutes": 15,
+                },
+            }
+        )
+
+        self.assertEqual(result.route, "simple")
+        self.assertTrue(result.can_pass_to_agent5)
+        self.assertEqual(result.selected_recipe.name, "계란볶음밥")
+
     def test_missing_candidates_are_reported(self):
         result = route_recipe(
             {

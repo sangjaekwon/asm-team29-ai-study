@@ -21,6 +21,11 @@ class Agent3Service:
         ingredient_info: IngredientInfo,
         food_directions: Optional[FoodDirections] = None,
     ) -> CuisineRouterOutput:
+        if isinstance(ingredient_info, dict):
+            ingredient_info = IngredientInfo.model_validate(ingredient_info)
+        if isinstance(food_directions, dict):
+            food_directions = FoodDirections.model_validate(food_directions)
+
         payload = {
             "ingredient_info": ingredient_info.model_dump(),
         }
