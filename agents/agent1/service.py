@@ -823,7 +823,16 @@ def _coerce_confirmation_input(state: AgentState) -> IngredientConfirmationInput
 
     if raw_confirmation:
         try:
-            return IngredientConfirmationInput.model_validate(raw_confirmation)
+            parsed = IngredientConfirmationInput.model_validate(raw_confirmation)
+            has_data = (
+                parsed.accepted_ingredients
+                or parsed.rejected_ingredients
+                or parsed.replacements
+                or parsed.additional_ingredients
+                or parsed.additional_ingredients_text.strip()
+            )
+            if has_data:
+                return parsed
         except ValidationError:
             return None
 
@@ -1172,7 +1181,13 @@ def analyze_ingredients(state: AgentState) -> dict[str, Any]:
     fallback을 사용한다.
     """
 
-    if _has_confirmation_input(state):
+    has_confirmation = _has_confirmation_input(state)
+    # print(f"[agent1] has_confirmation={has_confirmation}")
+    # print(f"[agent1] confirmed_ingredients={state.get('confirmed_ingredients', [])}")
+    # print(f"[agent1] user_input_ingredients={state.get('user_input_ingredients', [])}")
+    # print(f"[agent1] ingredient_confirmation={state.get('ingredient_confirmation')}")
+
+    if has_confirmation:
         return _build_user_confirmed_output(state)
 
     detections: list[ImageDetection] = []
@@ -1185,6 +1200,8 @@ def analyze_ingredients(state: AgentState) -> dict[str, Any]:
             detector_error = f"이미지 재료 탐지 실패: {exc}"
 
     ingredients = _ingredient_inputs_from_state(state, detections)
+    # print(f"[agent1] ingredients from state={ingredients}")
+    # print(f"[agent1] _should_call_solar={_should_call_solar()}")
     if not ingredients:
         if detector_error:
             return IngredientAnalyzerOutput(

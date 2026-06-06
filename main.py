@@ -11,8 +11,6 @@ from agents.schemas import (
     IngredientConfirmationInput,
 )
 
-from api.agent3 import router as agent3_router
-
 RUNTIME_OUTPUTS_DIR = Path("runtime_outputs")
 RUNTIME_OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -25,12 +23,6 @@ app.mount(
         "/outputs",
         StaticFiles(directory=str(RUNTIME_OUTPUTS_DIR)),
         name="outputs"
-        )
-
-app.include_router(
-        agent3_router,
-        prefix="/agent3",
-        tags=["Agent3"]
         )
 
 @app.get("/")

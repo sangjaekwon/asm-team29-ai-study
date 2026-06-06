@@ -23,6 +23,10 @@ def route_recipe(state: AgentState) -> RecipeRouterOutput:
     ingredients = state.get("available_ingredients", [])
     recipe_type = state.get("recipe_type") or "korean"
 
+    # print(f"[STUB route_recipe] available_ingredients={ingredients}")
+    # print(f"[STUB route_recipe] vision_status={state.get('vision_status')}")
+    # print(f"[STUB route_recipe] recipe_type={recipe_type}")
+
     if not ingredients:
         return RecipeRouterOutput(
             route="missing_ingredient",
