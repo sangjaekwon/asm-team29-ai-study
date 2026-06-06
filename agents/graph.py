@@ -53,6 +53,15 @@ def route_recipe(state: AgentState) -> RecipeRouterOutput:
     )
 
 
+def route_after_ingredient_analyzer(state: AgentState) -> str:
+    """재료 확인이 필요한 경우 다음 agent 실행을 멈춘다."""
+
+    if state.get("vision_status") == "need_user_confirmation":
+        return "wait_for_user_confirmation"
+
+    return "continue"
+
+
 def build_recipe_graph():
     workflow = StateGraph(AgentState)
     workflow.add_node("ingredient_analyzer", analyze_ingredients)
@@ -62,7 +71,14 @@ def build_recipe_graph():
     workflow.add_node("recipe_generator", generate_recipe)
 
     workflow.set_entry_point("ingredient_analyzer")
-    workflow.add_edge("ingredient_analyzer", "context_analyzer")
+    workflow.add_conditional_edges(
+        "ingredient_analyzer",
+        route_after_ingredient_analyzer,
+        {
+            "continue": "context_analyzer",
+            "wait_for_user_confirmation": END,
+        },
+    )
     workflow.add_edge("context_analyzer", "cuisine_router")
     workflow.add_edge("cuisine_router", "recipe_router")
     workflow.add_edge("recipe_router", "recipe_generator")

@@ -703,59 +703,6 @@ def test_real_image_detection_flow_builds_agent3_ingredient_info():
     assert 0.0 <= first_detected["confidence"] <= 1.0
 
 
-def _load_annotation_font(size: int):
-    from PIL import ImageFont
-
-    font_candidates = [
-        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-        "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
-        "/Library/Fonts/Arial Unicode.ttf",
-    ]
-    for font_path in font_candidates:
-        if os.path.exists(font_path):
-            return ImageFont.truetype(font_path, size=size)
-
-    return ImageFont.load_default()
-
-
-def _draw_agent1_e2e_result(
-    image_path: Path,
-    result: dict,
-    output_path: Path,
-) -> None:
-    from PIL import Image, ImageDraw
-
-    image = Image.open(image_path).convert("RGB")
-    draw = ImageDraw.Draw(image)
-    font = _load_annotation_font(size=22)
-
-    for ingredient in result["detected_ingredients"]:
-        box = ingredient.get("boundary_box") or []
-        if len(box) != 4:
-            continue
-
-        x1, y1, x2, y2 = box
-        color = "red" if ingredient.get("needs_confirmation") else "lime"
-        detector_label = ""
-        for detection in result["raw_vision_result"].get("detections", []):
-            if detection.get("boundary_box") == box:
-                detector_label = detection.get("original_label") or detection.get("label", "")
-                break
-
-        caption = (
-            f"{ingredient['name']} | detector:{detector_label} | "
-            f"{ingredient['confidence']:.2f}"
-        )
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=5)
-
-        text_box = draw.textbbox((x1, max(0, y1 - 30)), caption, font=font)
-        draw.rectangle(text_box, fill="black")
-        draw.text((x1, max(0, y1 - 30)), caption, fill=color, font=font)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
-
-
 @pytest.mark.integration
 def test_real_jeyuk_image_detection_and_solar_output_for_agent3():
     api_key = os.getenv("SOLAR_API_KEY", "").strip().lower()
@@ -774,6 +721,7 @@ def test_real_jeyuk_image_detection_and_solar_output_for_agent3():
         {
             "image_path": str(image_path),
             "image_id": "jeyuk-local-e2e",
+            "annotation_output_path": str(annotated_image_path),
             "confidence_threshold": 0.4,
             "user_input_ingredients": [],
         }
@@ -790,7 +738,7 @@ def test_real_jeyuk_image_detection_and_solar_output_for_agent3():
         "agent3_input": agent3_input,
         "vision_status": result["vision_status"],
         "vision_message": result["vision_message"],
-        "annotated_image_path": str(annotated_image_path),
+        "annotated_image_path": result["annotated_image_path"],
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -798,7 +746,6 @@ def test_real_jeyuk_image_detection_and_solar_output_for_agent3():
         json.dumps(report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    _draw_agent1_e2e_result(image_path, result, annotated_image_path)
 
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
@@ -806,6 +753,8 @@ def test_real_jeyuk_image_detection_and_solar_output_for_agent3():
     assert detector_output
     assert result["detected_ingredients"]
     assert result["available_ingredients"]
+    assert result["annotated_image_path"] == str(annotated_image_path)
+    assert result["raw_vision_result"]["annotated_image_path"] == str(annotated_image_path)
     assert any(len(item["boundary_box"]) == 4 for item in result["detected_ingredients"])
     assert (
         agent3_input["main_ingredients"]
