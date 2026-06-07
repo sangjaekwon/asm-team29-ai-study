@@ -38,6 +38,27 @@
         </div>
       </section>
 
+      <section class="langsmith-card" aria-label="LangSmith Trace">
+        <div class="langsmith-toolbar">
+          <div>
+            <h2>LangSmith Trace</h2>
+            <p id="langsmithHint">
+              요청을 실행하면 LangSmith에서 백엔드 실행 trace를 확인할 수 있습니다.
+            </p>
+          </div>
+          <div class="langsmith-actions">
+            <span class="server-pill" id="langsmithStatus">연결 확인 중</span>
+            <a
+              class="ghost-button langsmith-link"
+              id="langsmithLink"
+              href="https://smith.langchain.com"
+            >
+              Tracing 바로 열기
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section class="screen active" id="inputScreen">
         <form class="screen-card input-grid" id="demoForm">
           <label class="upload-box" id="uploadBox" for="imageInput">

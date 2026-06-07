@@ -12,6 +12,7 @@ __pycache__/
 test_outputs/
 agent1_detection_poc/
 runtime_outputs/
+uvicorn.*.log
 notebooks
 
 # IDE
