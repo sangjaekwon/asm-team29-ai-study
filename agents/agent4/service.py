@@ -182,14 +182,14 @@ def _evaluate_candidate(
 
     conflicts = _find_conflicts(candidate, food_directions)
 
-    if conflicts:
-        route = "conflict"
-        can_pass = False
-        score = 0
-    elif missing_required:
+    if missing_required:
         route = "no_ingredient"
         can_pass = allow_additional
         score = 45 if allow_additional else 5
+    elif conflicts:
+        route = "conflict"
+        can_pass = False
+        score = 0
     elif substitutions or missing_optional:
         route = "simple"
         can_pass = True

@@ -35,9 +35,13 @@ from agents.schemas import (
 )
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 
-SOLAR_BASE_URL = "https://api.upstage.ai/v1"
+SOLAR_BASE_URL = (
+    os.getenv("SOLAR_BASE_URL")
+    or os.getenv("UPSTAGE_BASE_URL")
+    or "https://api.upstage.ai/v1"
+)
 DEFAULT_SOLAR_MODEL = "solar-pro3"
 DEFAULT_CONFIDENCE_THRESHOLD = 0.7
 DEFAULT_DETECTOR_BACKEND = "owlv2"
@@ -107,11 +111,15 @@ class ImageDetection(BaseModel):
 
 
 def _get_solar_api_key() -> str:
-    return os.getenv("SOLAR_API_KEY", "").strip()
+    return (os.getenv("SOLAR_API_KEY") or os.getenv("UPSTAGE_API_KEY") or "").strip()
 
 
 def _get_solar_model() -> str:
-    return os.getenv("SOLAR_MODEL", DEFAULT_SOLAR_MODEL).strip() or DEFAULT_SOLAR_MODEL
+    return (
+        os.getenv("SOLAR_MODEL")
+        or os.getenv("UPSTAGE_MODEL")
+        or DEFAULT_SOLAR_MODEL
+    ).strip()
 
 
 def _get_detector_backend() -> str:
@@ -448,11 +456,11 @@ def _create_annotated_image(
 
     image = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(image)
-    font_size = max(56, min(84, image.width // 19))
+    font_size = max(20, min(34, image.width // 34))
     font = _load_annotation_font(size=font_size)
-    stroke_width = max(6, image.width // 220)
-    text_stroke_width = max(2, font_size // 18)
-    padding = max(12, font_size // 4)
+    stroke_width = max(3, image.width // 360)
+    text_stroke_width = max(1, font_size // 18)
+    padding = max(6, font_size // 5)
     occupied_rects: list[list[int]] = []
 
     for ingredient in detected_ingredients:
@@ -1001,6 +1009,16 @@ def _build_user_confirmed_output(
             "ingredients": confirmed_names,
             "message": "Solar 호출 실패로 규칙 기반 확정 결과를 사용했습니다.",
             "error": str(exc),
+        }
+
+    if not detected_ingredients:
+        detected_ingredients = [
+            _build_detected_ingredient(name, source="user_confirmed")
+            for name in confirmed_names
+        ]
+        llm_result = {
+            "ingredients": confirmed_names,
+            "message": "Solar returned no confirmed ingredients, used rule-based confirmation.",
         }
 
     confirmed_detected: list[DetectedIngredient] = []
