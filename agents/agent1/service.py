@@ -855,17 +855,18 @@ def _coerce_confirmation_input(state: AgentState) -> IngredientConfirmationInput
     if raw_confirmation:
         try:
             parsed = IngredientConfirmationInput.model_validate(raw_confirmation)
-            has_data = (
-                parsed.accepted_ingredients
-                or parsed.rejected_ingredients
-                or parsed.replacements
-                or parsed.additional_ingredients
-                or parsed.additional_ingredients_text.strip()
-            )
-            if has_data:
-                return parsed
         except ValidationError:
             return None
+
+        has_data = (
+            parsed.accepted_ingredients
+            or parsed.rejected_ingredients
+            or parsed.replacements
+            or parsed.additional_ingredients
+            or parsed.additional_ingredients_text.strip()
+        )
+        if has_data or state.get("detected_ingredients"):
+            return parsed
 
     confirmed_ingredients = state.get("confirmed_ingredients", [])
     if confirmed_ingredients:
@@ -878,6 +879,9 @@ def _has_confirmation_input(state: AgentState) -> bool:
     confirmation = _coerce_confirmation_input(state)
     if confirmation is None:
         return False
+
+    if state.get("detected_ingredients"):
+        return True
 
     return bool(
         confirmation.accepted_ingredients
