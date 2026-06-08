@@ -23,7 +23,7 @@ const elements = {
   situationInput: document.querySelector("#situationInput"),
   servingsInput: document.querySelector("#servingsInput"),
   confidenceInput: document.querySelector("#confidenceInput"),
-  ingredientPolicy: document.querySelector("#ingredientPolicy"),
+  allowAdditionalToggle: document.querySelector("#allowAdditionalToggle"),
   runButton: document.querySelector("#runButton"),
   resetButton: document.querySelector("#resetButton"),
   serverStatus: document.querySelector("#serverStatus"),
@@ -545,6 +545,10 @@ async function postRecommend(payload, stage) {
   }
 }
 
+function ingredientPolicyValue() {
+  return elements.allowAdditionalToggle.checked ? "allow_additional" : "only_available";
+}
+
 function basePayload() {
   return {
     image_base64: state.imageBase64,
@@ -554,7 +558,7 @@ function basePayload() {
     user_situation_input: elements.situationInput.value.trim(),
     servings: Number(elements.servingsInput.value || 1),
     confidence_threshold: Number(elements.confidenceInput.value || 0.4),
-    ingredient_policy: elements.ingredientPolicy.value,
+    ingredient_policy: ingredientPolicyValue(),
   };
 }
 
@@ -628,7 +632,7 @@ elements.confirmButton.addEventListener("click", () => {
       user_situation_input: elements.situationInput.value.trim(),
       servings: Number(elements.servingsInput.value || 1),
       confidence_threshold: Number(elements.confidenceInput.value || 0.4),
-      ingredient_policy: elements.ingredientPolicy.value,
+      ingredient_policy: ingredientPolicyValue(),
     },
     "final",
   );
@@ -647,7 +651,7 @@ elements.resetButton.addEventListener("click", () => {
   elements.manualIngredients.value = "";
   elements.servingsInput.value = "1";
   elements.confidenceInput.value = "0.4";
-  elements.ingredientPolicy.value = "only_available";
+  elements.allowAdditionalToggle.checked = false;
   elements.uploadPreviewImage.removeAttribute("src");
   elements.uploadBox.classList.remove("uploaded", "needs-attention");
   elements.uploadTitle.textContent = "재료 사진 올리기";
