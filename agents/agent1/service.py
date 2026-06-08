@@ -327,13 +327,15 @@ def _load_annotation_font(size: int):
     from PIL import ImageFont
 
     font_candidates = [
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "C:/Windows/Fonts/malgun.ttf",
         "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for font_path in font_candidates:
         if os.path.exists(font_path):
@@ -853,17 +855,18 @@ def _coerce_confirmation_input(state: AgentState) -> IngredientConfirmationInput
     if raw_confirmation:
         try:
             parsed = IngredientConfirmationInput.model_validate(raw_confirmation)
-            has_data = (
-                parsed.accepted_ingredients
-                or parsed.rejected_ingredients
-                or parsed.replacements
-                or parsed.additional_ingredients
-                or parsed.additional_ingredients_text.strip()
-            )
-            if has_data:
-                return parsed
         except ValidationError:
             return None
+
+        has_data = (
+            parsed.accepted_ingredients
+            or parsed.rejected_ingredients
+            or parsed.replacements
+            or parsed.additional_ingredients
+            or parsed.additional_ingredients_text.strip()
+        )
+        if has_data or state.get("detected_ingredients"):
+            return parsed
 
     confirmed_ingredients = state.get("confirmed_ingredients", [])
     if confirmed_ingredients:
@@ -876,6 +879,9 @@ def _has_confirmation_input(state: AgentState) -> bool:
     confirmation = _coerce_confirmation_input(state)
     if confirmation is None:
         return False
+
+    if state.get("detected_ingredients"):
+        return True
 
     return bool(
         confirmation.accepted_ingredients

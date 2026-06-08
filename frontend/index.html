@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ASM Team29 Recipe Demo</title>
-    <link rel="stylesheet" href="/frontend/styles.css" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=2" />
   </head>
   <body>
     <main class="app-shell">
@@ -91,10 +91,14 @@
               />
             </label>
 
+            <label class="field policy-row" for="allowAdditionalToggle">
+              <input id="allowAdditionalToggle" type="checkbox" />
+              <span>핵심 재료가 없으면 사서라도 만들고 싶어요</span>
+            </label>
+
             <input id="manualIngredients" type="hidden" value="" />
             <input id="servingsInput" type="hidden" value="1" />
             <input id="confidenceInput" type="hidden" value="0.4" />
-            <input id="ingredientPolicy" type="hidden" value="only_available" />
 
             <button class="primary-button" id="runButton" type="submit">
               사진 분석 시작
@@ -186,6 +190,6 @@
       </section>
     </main>
 
-    <script src="/frontend/app.js"></script>
+    <script src="/frontend/app.js?v=2"></script>
   </body>
 </html>
