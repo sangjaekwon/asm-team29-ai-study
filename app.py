@@ -271,7 +271,7 @@ def page_recipe():
     st.divider()
 
     # ── 추천 이유 ───────────────────────────────
-    recommendation_reasons = [
+    raw_recommendation_reasons = [
         reason
         for reason in [
             *recipe.get("recommendation_reasons", []),
@@ -279,11 +279,26 @@ def page_recipe():
         ]
         if str(reason).strip()
     ]
+    recommendation_reasons = []
+    compare_values = []
+    for reason in raw_recommendation_reasons:
+        cleaned = str(reason).strip()
+        compare_value = " ".join(cleaned.rstrip(".").split())
+        is_duplicate = any(
+            compare_value == existing
+            or (len(compare_value) >= 20 and compare_value in existing)
+            or (len(existing) >= 20 and existing in compare_value)
+            for existing in compare_values
+        )
+        if not is_duplicate:
+            recommendation_reasons.append(cleaned)
+            compare_values.append(compare_value)
+
     if not recommendation_reasons:
         recommendation_reasons.append("Agent4가 이 레시피를 최종 후보로 선택했지만, 선택 이유가 응답에 포함되지 않았습니다.")
 
     st.subheader("추천한 이유")
-    for reason in dict.fromkeys(recommendation_reasons):
+    for reason in recommendation_reasons:
         st.write(f"- {reason}")
     st.divider()
 

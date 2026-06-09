@@ -5,6 +5,7 @@ const state = {
   lastResult: null,
   progressTimer: null,
   progressValue: 0,
+  progressStartedAt: 0,
 };
 
 const elements = {
@@ -140,17 +141,23 @@ function updateProgress(value, label, hint) {
 function startProgress(stage) {
   window.clearInterval(state.progressTimer);
   state.progressValue = 5;
+  state.progressStartedAt = Date.now();
   elements.progressPanel.classList.remove("hidden", "error");
 
   const [initialLabel, initialHint] = progressText(state.progressValue, stage);
   updateProgress(state.progressValue, initialLabel, initialHint);
 
   state.progressTimer = window.setInterval(() => {
-    const ceiling = stage === "final" ? 92 : 94;
+    const elapsedSeconds = Math.floor((Date.now() - state.progressStartedAt) / 1000);
+    const ceiling = stage === "final" ? 98 : 96;
     const remaining = ceiling - state.progressValue;
-    const delta = Math.max(1, Math.ceil(remaining * 0.08));
+    const delta = remaining > 8 ? Math.max(1, Math.ceil(remaining * 0.08)) : 1;
     const nextValue = Math.min(ceiling, state.progressValue + delta);
-    const [label, hint] = progressText(nextValue, stage);
+    let [label, hint] = progressText(nextValue, stage);
+    if (stage === "final" && nextValue >= 92) {
+      label = "레시피 응답 대기";
+      hint = `Agent4/Agent5가 레시피를 정리하는 중입니다. ${elapsedSeconds}초째 처리 중입니다.`;
+    }
     updateProgress(nextValue, label, hint);
   }, 700);
 }
@@ -158,6 +165,7 @@ function startProgress(stage) {
 function completeProgress(stage) {
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
   const label = stage === "final" ? "레시피 완성" : "인식 완료";
   const hint =
     stage === "final"
@@ -169,6 +177,7 @@ function completeProgress(stage) {
 function failProgress(message) {
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
   elements.progressPanel.classList.remove("hidden");
   elements.progressPanel.classList.add("error");
   updateProgress(state.progressValue || 100, "오류", message || "요청 처리 중 오류가 발생했습니다.");
@@ -358,7 +367,22 @@ function buildRecommendationReasons(recipe, result) {
     reasons.push("Agent4가 이 레시피를 최종 후보로 선택했지만, 선택 이유가 응답에 포함되지 않았습니다.");
   }
 
-  return reasons.filter((reason, index, array) => array.indexOf(reason) === index);
+  return reasons.reduce((deduped, reason) => {
+    const current = reason.replace(/\.+$/, "").replace(/\s+/g, " ").trim();
+    const duplicated = deduped.some((existing) => {
+      const previous = existing.replace(/\.+$/, "").replace(/\s+/g, " ").trim();
+      return (
+        current === previous ||
+        (current.length >= 20 && previous.includes(current)) ||
+        (previous.length >= 20 && current.includes(previous))
+      );
+    });
+
+    if (!duplicated) {
+      deduped.push(reason);
+    }
+    return deduped;
+  }, []);
 }
 
 function renderRecipe(result) {
@@ -623,6 +647,7 @@ elements.resetButton.addEventListener("click", () => {
   state.progressValue = 0;
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
 
   elements.form.reset();
   elements.manualIngredients.value = "";
