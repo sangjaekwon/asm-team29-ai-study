@@ -120,6 +120,50 @@ h1 {
   margin-bottom: 16px;
 }
 
+.langsmith-card {
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.langsmith-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 74px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcf8;
+}
+
+.langsmith-toolbar h2 {
+  margin-bottom: 5px;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.langsmith-toolbar p {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.langsmith-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.langsmith-link {
+  text-decoration: none;
+}
+
 .flow-step {
   display: flex;
   align-items: center;
@@ -611,6 +655,33 @@ h1 {
   font-weight: 900;
 }
 
+.policy-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.policy-row input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  flex-shrink: 0;
+  accent-color: var(--green);
+}
+
+.policy-row span {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .add-field {
   margin-top: 16px;
 }
@@ -719,6 +790,12 @@ h1 {
   .input-grid,
   .detected-summary {
     grid-template-columns: 1fr;
+  }
+
+  .langsmith-toolbar,
+  .langsmith-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .upload-box,

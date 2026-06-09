@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ASM Team29 Recipe Demo</title>
-    <link rel="stylesheet" href="/frontend/styles.css" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=2" />
   </head>
   <body>
     <main class="app-shell">
@@ -35,6 +35,27 @@
         <div class="flow-step" data-step="recipe">
           <span>3</span>
           <strong>레시피 받기</strong>
+        </div>
+      </section>
+
+      <section class="langsmith-card" aria-label="LangSmith Trace">
+        <div class="langsmith-toolbar">
+          <div>
+            <h2>LangSmith Trace</h2>
+            <p id="langsmithHint">
+              요청을 실행하면 LangSmith에서 백엔드 실행 trace를 확인할 수 있습니다.
+            </p>
+          </div>
+          <div class="langsmith-actions">
+            <span class="server-pill" id="langsmithStatus">연결 확인 중</span>
+            <a
+              class="ghost-button langsmith-link"
+              id="langsmithLink"
+              href="https://smith.langchain.com"
+            >
+              Tracing 바로 열기
+            </a>
+          </div>
         </div>
       </section>
 
@@ -70,10 +91,14 @@
               />
             </label>
 
+            <label class="field policy-row" for="allowAdditionalToggle">
+              <input id="allowAdditionalToggle" type="checkbox" />
+              <span>핵심 재료가 없으면 사서라도 만들고 싶어요</span>
+            </label>
+
             <input id="manualIngredients" type="hidden" value="" />
             <input id="servingsInput" type="hidden" value="1" />
             <input id="confidenceInput" type="hidden" value="0.4" />
-            <input id="ingredientPolicy" type="hidden" value="only_available" />
 
             <button class="primary-button" id="runButton" type="submit">
               사진 분석 시작

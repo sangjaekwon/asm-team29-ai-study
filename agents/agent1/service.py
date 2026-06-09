@@ -35,9 +35,13 @@ from agents.schemas import (
 )
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 
-SOLAR_BASE_URL = "https://api.upstage.ai/v1"
+SOLAR_BASE_URL = (
+    os.getenv("SOLAR_BASE_URL")
+    or os.getenv("UPSTAGE_BASE_URL")
+    or "https://api.upstage.ai/v1"
+)
 DEFAULT_SOLAR_MODEL = "solar-pro3"
 DEFAULT_CONFIDENCE_THRESHOLD = 0.7
 DEFAULT_DETECTOR_BACKEND = "owlv2"
@@ -107,11 +111,15 @@ class ImageDetection(BaseModel):
 
 
 def _get_solar_api_key() -> str:
-    return os.getenv("SOLAR_API_KEY", "").strip()
+    return (os.getenv("SOLAR_API_KEY") or os.getenv("UPSTAGE_API_KEY") or "").strip()
 
 
 def _get_solar_model() -> str:
-    return os.getenv("SOLAR_MODEL", DEFAULT_SOLAR_MODEL).strip() or DEFAULT_SOLAR_MODEL
+    return (
+        os.getenv("SOLAR_MODEL")
+        or os.getenv("UPSTAGE_MODEL")
+        or DEFAULT_SOLAR_MODEL
+    ).strip()
 
 
 def _get_detector_backend() -> str:
@@ -319,13 +327,15 @@ def _load_annotation_font(size: int):
     from PIL import ImageFont
 
     font_candidates = [
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "C:/Windows/Fonts/malgun.ttf",
         "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for font_path in font_candidates:
         if os.path.exists(font_path):
@@ -845,17 +855,18 @@ def _coerce_confirmation_input(state: AgentState) -> IngredientConfirmationInput
     if raw_confirmation:
         try:
             parsed = IngredientConfirmationInput.model_validate(raw_confirmation)
-            has_data = (
-                parsed.accepted_ingredients
-                or parsed.rejected_ingredients
-                or parsed.replacements
-                or parsed.additional_ingredients
-                or parsed.additional_ingredients_text.strip()
-            )
-            if has_data:
-                return parsed
         except ValidationError:
             return None
+
+        has_data = (
+            parsed.accepted_ingredients
+            or parsed.rejected_ingredients
+            or parsed.replacements
+            or parsed.additional_ingredients
+            or parsed.additional_ingredients_text.strip()
+        )
+        if has_data or state.get("detected_ingredients"):
+            return parsed
 
     confirmed_ingredients = state.get("confirmed_ingredients", [])
     if confirmed_ingredients:
@@ -868,6 +879,9 @@ def _has_confirmation_input(state: AgentState) -> bool:
     confirmation = _coerce_confirmation_input(state)
     if confirmation is None:
         return False
+
+    if state.get("detected_ingredients"):
+        return True
 
     return bool(
         confirmation.accepted_ingredients
@@ -976,6 +990,16 @@ def _build_user_confirmed_output(
         "ingredients": confirmed_names,
         "message": "사용자 확인 재료를 규칙 기반으로 확정했습니다.",
     }
+
+    if not detected_ingredients:
+        detected_ingredients = [
+            _build_detected_ingredient(name, source="user_confirmed")
+            for name in confirmed_names
+        ]
+        llm_result = {
+            "ingredients": confirmed_names,
+            "message": "Solar returned no confirmed ingredients, used rule-based confirmation.",
+        }
 
     confirmed_detected: list[DetectedIngredient] = []
     for ingredient in _deduplicate_detected_ingredients(detected_ingredients):

@@ -20,7 +20,7 @@ MODEL = os.getenv("SOLAR_MODEL") or os.getenv("UPSTAGE_MODEL") or "solar-pro3"
 
 def create_client():
     if not API_KEY:
-        raise RuntimeError("SOLAR_API_KEY environment variable is required.")
+        raise RuntimeError("SOLAR_API_KEY or UPSTAGE_API_KEY environment variable is required.")
 
     return OpenAI(
         api_key=API_KEY,

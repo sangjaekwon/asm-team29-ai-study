@@ -16,9 +16,13 @@ from agents.agent5.messages import (
 from agents.schemas import AgentState, GeneratedRecipe
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 
-SOLAR_BASE_URL = "https://api.upstage.ai/v1"
+SOLAR_BASE_URL = (
+    os.getenv("SOLAR_BASE_URL")
+    or os.getenv("UPSTAGE_BASE_URL")
+    or "https://api.upstage.ai/v1"
+)
 DEFAULT_SOLAR_MODEL = "solar-pro3"
 TEST_API_KEYS = {"", "test", "dummy", "your_upstage_api_key_here"}
 
@@ -67,11 +71,15 @@ def _unique_items(items: list[str]) -> list[str]:
 
 
 def _get_solar_api_key() -> str:
-    return os.getenv("SOLAR_API_KEY", "").strip()
+    return (os.getenv("SOLAR_API_KEY") or os.getenv("UPSTAGE_API_KEY") or "").strip()
 
 
 def _get_solar_model() -> str:
-    return os.getenv("SOLAR_MODEL", DEFAULT_SOLAR_MODEL).strip() or DEFAULT_SOLAR_MODEL
+    return (
+        os.getenv("SOLAR_MODEL")
+        or os.getenv("UPSTAGE_MODEL")
+        or DEFAULT_SOLAR_MODEL
+    ).strip()
 
 
 def _should_call_solar() -> bool:

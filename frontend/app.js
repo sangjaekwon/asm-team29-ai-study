@@ -24,7 +24,7 @@ const elements = {
   situationInput: document.querySelector("#situationInput"),
   servingsInput: document.querySelector("#servingsInput"),
   confidenceInput: document.querySelector("#confidenceInput"),
-  ingredientPolicy: document.querySelector("#ingredientPolicy"),
+  allowAdditionalToggle: document.querySelector("#allowAdditionalToggle"),
   runButton: document.querySelector("#runButton"),
   resetButton: document.querySelector("#resetButton"),
   serverStatus: document.querySelector("#serverStatus"),
@@ -46,7 +46,12 @@ const elements = {
   confirmButton: document.querySelector("#confirmButton"),
   recipeSummary: document.querySelector("#recipeSummary"),
   recipeCard: document.querySelector("#recipeCard"),
+  langsmithStatus: document.querySelector("#langsmithStatus"),
+  langsmithHint: document.querySelector("#langsmithHint"),
+  langsmithLink: document.querySelector("#langsmithLink"),
 };
+
+const LANGSMITH_HOME = "https://smith.langchain.com";
 
 function splitIngredients(value) {
   return value
@@ -187,6 +192,63 @@ function imageUrlFromResult(result) {
   return result?.annotated_image_url || state.previewUrl;
 }
 
+function cacheSafeImageUrl(imageUrl) {
+  if (!imageUrl || imageUrl.startsWith("data:")) {
+    return imageUrl;
+  }
+
+  return `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+}
+
+function setLangSmithTarget(url) {
+  const targetUrl = url || LANGSMITH_HOME;
+  elements.langsmithLink.href = targetUrl;
+}
+
+function renderLangSmithStatus(langsmith = {}) {
+  const status = langsmith.status || "token_required";
+  const project = langsmith.project || "asm-team29-recipe-demo";
+  const traceUrl = langsmith.latest_run_url || LANGSMITH_HOME;
+
+  if (status === "connected") {
+    elements.langsmithStatus.textContent = "LangSmith 연결됨";
+    elements.langsmithStatus.className = "server-pill running";
+    elements.langsmithHint.textContent = `project: ${project} / LangSmith에서 waterfall trace를 확인하세요.`;
+    elements.langsmithLink.textContent = "Tracing 바로 열기";
+    setLangSmithTarget(traceUrl);
+    return;
+  }
+
+  elements.langsmithStatus.textContent =
+    status === "token_error" ? "LangSmith 토큰 오류" : "LangSmith 토큰 필요";
+  elements.langsmithStatus.className = "server-pill";
+  elements.langsmithHint.textContent =
+    status === "token_error"
+      ? "LangSmith API key를 다시 발급해서 .env에 넣어주세요."
+      : ".env에 LANGSMITH_API_KEY를 넣으면 LangSmith trace가 연결됩니다.";
+  elements.langsmithLink.textContent = "LangSmith 열기";
+  setLangSmithTarget(LANGSMITH_HOME);
+}
+
+async function refreshLangSmithStatus() {
+  try {
+    const response = await fetch("/debug/workflow/latest", {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const trace = await response.json();
+    renderLangSmithStatus(trace.langsmith || {});
+  } catch (error) {
+    elements.langsmithStatus.textContent = "LangSmith 연결 실패";
+    elements.langsmithStatus.className = "server-pill";
+    elements.langsmithHint.textContent = error.message;
+    setLangSmithTarget(LANGSMITH_HOME);
+  }
+}
+
 function renderAnalysisImage(result) {
   const imageUrl = imageUrlFromResult(result);
   if (!imageUrl) {
@@ -195,7 +257,7 @@ function renderAnalysisImage(result) {
     return;
   }
 
-  elements.previewImage.src = `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  elements.previewImage.src = cacheSafeImageUrl(imageUrl);
   elements.imageStage.classList.add("has-image");
 }
 
@@ -207,7 +269,7 @@ function renderConfirmedImage(result) {
     return;
   }
 
-  elements.confirmedImage.src = `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  elements.confirmedImage.src = cacheSafeImageUrl(imageUrl);
   elements.confirmedImage.parentElement.classList.add("has-image");
 }
 
@@ -528,6 +590,7 @@ async function postRecommend(payload, stage) {
 
     const result = await response.json();
     completeProgress(stage);
+    refreshLangSmithStatus();
     window.setTimeout(() => renderResult(result, stage), 350);
   } catch (error) {
     elements.scanMessage.textContent = error.message;
@@ -535,6 +598,10 @@ async function postRecommend(payload, stage) {
   } finally {
     setBusy(false);
   }
+}
+
+function ingredientPolicyValue() {
+  return elements.allowAdditionalToggle.checked ? "allow_additional" : "only_available";
 }
 
 function basePayload() {
@@ -546,7 +613,7 @@ function basePayload() {
     user_situation_input: elements.situationInput.value.trim(),
     servings: Number(elements.servingsInput.value || 1),
     confidence_threshold: Number(elements.confidenceInput.value || 0.4),
-    ingredient_policy: elements.ingredientPolicy.value,
+    ingredient_policy: ingredientPolicyValue(),
   };
 }
 
@@ -633,7 +700,7 @@ elements.confirmButton.addEventListener("click", () => {
       user_situation_input: elements.situationInput.value.trim(),
       servings: Number(elements.servingsInput.value || 1),
       confidence_threshold: Number(elements.confidenceInput.value || 0.4),
-      ingredient_policy: elements.ingredientPolicy.value,
+      ingredient_policy: ingredientPolicyValue(),
     },
     "final",
   );
@@ -653,7 +720,7 @@ elements.resetButton.addEventListener("click", () => {
   elements.manualIngredients.value = "";
   elements.servingsInput.value = "1";
   elements.confidenceInput.value = "0.4";
-  elements.ingredientPolicy.value = "only_available";
+  elements.allowAdditionalToggle.checked = false;
   elements.uploadPreviewImage.removeAttribute("src");
   elements.uploadBox.classList.remove("uploaded", "needs-attention");
   elements.uploadTitle.textContent = "재료 사진 올리기";
@@ -675,3 +742,6 @@ elements.resetButton.addEventListener("click", () => {
   setBusy(false);
   showScreen("input");
 });
+
+refreshLangSmithStatus();
+window.setInterval(refreshLangSmithStatus, 8000);

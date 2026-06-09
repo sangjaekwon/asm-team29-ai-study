@@ -8,12 +8,27 @@ from openai import OpenAI
 from agents.schemas import IngredientInfo, FoodDirections, CuisineRouterOutput
 from .prompt import SYSTEM_PROMPT
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
+
+SOLAR_BASE_URL = (
+        os.getenv("SOLAR_BASE_URL")
+        or os.getenv("UPSTAGE_BASE_URL")
+        or "https://api.upstage.ai/v1"
+        )
+SOLAR_MODEL = os.getenv("SOLAR_MODEL") or os.getenv("UPSTAGE_MODEL") or "solar-mini"
 
 client = OpenAI(
-        api_key=os.getenv("SOLAR_API_KEY"),
-        base_url="https://api.upstage.ai/v1"
+        api_key=os.getenv("SOLAR_API_KEY") or os.getenv("UPSTAGE_API_KEY"),
+        base_url=SOLAR_BASE_URL
         )
+
+
+def _fallback_output(reason: str = "") -> CuisineRouterOutput:
+    return CuisineRouterOutput(
+        recipe_type="korean",
+        recipe_type_reason=reason or "Agent3 fallback: defaulted to korean.",
+    )
+
 
 class Agent3Service:
     def classify(
@@ -32,35 +47,38 @@ class Agent3Service:
         if food_directions is not None:
             payload["food_directions"] = food_directions.model_dump()
 
-        response = client.chat.completions.create(
-                model="solar-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(
-                            payload,
-                            ensure_ascii=False,
-                            indent=2
-                        )
-                    }
-                ]
-            )
-
-        result = response.choices[0].message.content
-
         try:
+            response = client.chat.completions.create(
+                    model=SOLAR_MODEL,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": SYSTEM_PROMPT
+                        },
+                        {
+                            "role": "user",
+                            "content": json.dumps(
+                                payload,
+                                ensure_ascii=False,
+                                indent=2
+                            )
+                        }
+                    ]
+                )
+
+            result = response.choices[0].message.content or "{}"
             data = json.loads(result)
 
         except json.JSONDecodeError:
             print("Invalid JSON response: ")
-            print(repr(result))
-            raise
+            print(repr(locals().get("result", "")))
+            return _fallback_output("Agent3 returned invalid JSON, defaulted to korean.")
+        except Exception as exc:
+            print("Agent3 classify failed: ")
+            print(repr(exc))
+            return _fallback_output("Agent3 call failed, defaulted to korean.")
 
         return CuisineRouterOutput(
-                recipe_type=data.get("recipe_type"),
+                recipe_type=data.get("recipe_type") or "korean",
                 recipe_type_reason=data.get("recipe_type_reason")
                 )
