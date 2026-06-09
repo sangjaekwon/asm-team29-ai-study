@@ -41,8 +41,9 @@ route 판단 기준:
 
 중요 원칙:
 - 사용자가 가지고 있지 않은 재료를 ingredients_to_use에 넣지 마세요.
-- 사용자가 가지고 있지 않은 핵심 재료가 음식 이름에 들어가는 후보를 만들지 마세요. 예: 김치가 없으면 김치찌개, 김치볶음밥, 김치전은 후보로 만들면 안 됩니다.
-- 후보 음식의 정체성을 이루는 주재료만 required_ingredients에 넣으세요. 양파, 대파, 마늘, 고추처럼 맛을 보조하는 부재료는 optional_ingredients 또는 seasonings에 넣으세요.
+- 후보 음식의 정체성을 이루는 핵심 재료는 core_ingredients에 반드시 넣으세요.
+- core_ingredients는 available_ingredients에 있는 재료만 사용하세요. 핵심 재료가 없으면 그 후보를 만들지 마세요.
+- required_ingredients에는 실제 조리에 꼭 쓸 재료를 넣고, 양파, 대파, 마늘, 고추처럼 맛을 보조하는 부재료는 optional_ingredients 또는 seasonings에 넣으세요.
 - 주재료가 있으면 부재료가 일부 없어도 simple로 통과시킬 수 있습니다.
 - 부족한 핵심 재료는 ingredients_to_use가 아니라 additional_ingredients에 넣으세요.
 - 생략 가능한 재료는 substitutions에 replacement를 null로 적으세요.
@@ -70,7 +71,8 @@ route 판단 기준:
     {
       "name": "음식 이름",
       "recipe_type": "korean",
-      "required_ingredients": ["핵심 재료"],
+      "core_ingredients": ["음식 정체성을 이루는 핵심 재료"],
+      "required_ingredients": ["실제 조리에 꼭 쓸 재료"],
       "optional_ingredients": ["선택 재료"],
       "seasonings": ["양념"],
       "substitutions": {
