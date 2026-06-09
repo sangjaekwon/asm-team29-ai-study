@@ -270,6 +270,23 @@ def page_recipe():
 
     st.divider()
 
+    # ── 추천 이유 ───────────────────────────────
+    recommendation_reasons = [
+        reason
+        for reason in [
+            *recipe.get("recommendation_reasons", []),
+            (result.get("selected_recipe") or {}).get("reason", ""),
+        ]
+        if str(reason).strip()
+    ]
+    if not recommendation_reasons:
+        recommendation_reasons.append("Agent4가 이 레시피를 최종 후보로 선택했지만, 선택 이유가 응답에 포함되지 않았습니다.")
+
+    st.subheader("추천한 이유")
+    for reason in dict.fromkeys(recommendation_reasons):
+        st.write(f"- {reason}")
+    st.divider()
+
     # ── 재료 ────────────────────────────────────
     st.subheader("🛒 재료")
     ingredients = recipe.get("ingredients", [])
@@ -287,7 +304,9 @@ def page_recipe():
         st.info(f"**추가로 준비하면 좋은 재료:** {', '.join(additional)}")
 
     # ── 대체 재료 ──────────────────────────────
-    substitutions = recipe.get("substitutions", [])
+    substitutions = [
+        sub for sub in recipe.get("substitutions", []) if str(sub.get("original", "")).strip()
+    ]
     if substitutions:
         with st.expander("재료 대체/생략 정보"):
             for sub in substitutions:
