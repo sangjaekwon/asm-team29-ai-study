@@ -168,6 +168,7 @@ class CandidateFood(BaseModel):
 
     name: str
     recipe_type: RecipeType
+    core_ingredients: list[str] = Field(default_factory=list)
     required_ingredients: list[str] = Field(default_factory=list)
     optional_ingredients: list[str] = Field(default_factory=list)
     seasonings: list[str] = Field(default_factory=list)
