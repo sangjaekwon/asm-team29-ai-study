@@ -7,11 +7,15 @@ from openai import OpenAI
 from agents.agent4.prompt import get_prompt
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 
-API_KEY = os.getenv("SOLAR_API_KEY")
-BASE_URL = os.getenv("SOLAR_BASE_URL", "https://api.upstage.ai/v1")
-MODEL = os.getenv("SOLAR_MODEL", "solar-pro3")
+API_KEY = os.getenv("SOLAR_API_KEY") or os.getenv("UPSTAGE_API_KEY")
+BASE_URL = (
+    os.getenv("SOLAR_BASE_URL")
+    or os.getenv("UPSTAGE_BASE_URL")
+    or "https://api.upstage.ai/v1"
+)
+MODEL = os.getenv("SOLAR_MODEL") or os.getenv("UPSTAGE_MODEL") or "solar-pro3"
 
 
 def create_client():
