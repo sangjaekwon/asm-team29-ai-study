@@ -332,14 +332,33 @@ function friendlyRouteMessage(result) {
       "사용할 재료가 아직 확인되지 않았어요.",
     candidate_foods_required:
       "비교할 요리 후보가 아직 준비되지 않았어요.",
+    candidate_generation_failed:
+      "AI candidate generation failed. Check API settings and server logs.",
   };
 
   return (
     messages[result.route_message] ||
+    result.candidate_generation_error ||
+    result.recipe_generation_error ||
     result.generation_message ||
     result.route_message ||
     "재료를 조금 더 확인해주세요."
   );
+}
+
+function buildRecommendationReasons(recipe, result) {
+  const reasons = [
+    ...(recipe.recommendation_reasons || []),
+    result.selected_recipe?.reason || "",
+  ]
+    .map((reason) => String(reason).trim())
+    .filter(Boolean);
+
+  if (!reasons.length) {
+    reasons.push("Agent4가 이 레시피를 최종 후보로 선택했지만, 선택 이유가 응답에 포함되지 않았습니다.");
+  }
+
+  return reasons.filter((reason, index, array) => array.indexOf(reason) === index);
 }
 
 function renderRecipe(result) {
@@ -357,9 +376,14 @@ function renderRecipe(result) {
 
   const mood = elements.moodInput.value.trim();
   const situation = elements.situationInput.value.trim();
-  const substitutions = recipe.substitutions || result.substitutions || [];
-  const additional = recipe.additional_ingredients || result.additional_ingredients || [];
+  const substitutions = (recipe.substitutions || result.substitutions || []).filter(
+    (item) => item && String(item.original || "").trim(),
+  );
+  const additional = (recipe.additional_ingredients || result.additional_ingredients || []).filter(
+    (item) => String(item || "").trim(),
+  );
   const tips = recipe.cooking_tips || [];
+  const recommendationReasons = buildRecommendationReasons(recipe, result);
 
   elements.recipeSummary.textContent = `${mood || "오늘"} 기분과 "${situation || "든든하게 먹고 싶어요"}" 상황에 맞춰 ${recipe.recipe_name}을 추천합니다.`;
   elements.recipeCard.innerHTML = `
@@ -374,6 +398,13 @@ function renderRecipe(result) {
         <span class="chip strong">${difficultyLabel(recipe.difficulty)}</span>
         <span class="chip strong">${recipe.servings || 1}인분</span>
       </div>
+
+      <section class="recipe-block">
+        <h3>추천한 이유</h3>
+        <ul class="plain-list">
+          ${recommendationReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
+        </ul>
+      </section>
 
       <section class="recipe-block">
         <h3>오늘 쓸 재료</h3>
@@ -535,6 +566,7 @@ elements.confirmButton.addEventListener("click", () => {
 
   const rejected = [];
   const replacements = {};
+  const accepted = [];
   const items = elements.confirmationList.querySelectorAll(".confirmation-item");
 
   items.forEach((item) => {
@@ -548,15 +580,27 @@ elements.confirmButton.addEventListener("click", () => {
       rejected.push(name);
       return;
     }
+    if (replacement) {
+      accepted.push(replacement);
+    }
     if (replacement && replacement !== name) {
       replacements[name] = replacement;
     }
   });
 
+  if (!accepted.length) {
+    (lastResult.detected_ingredients || []).forEach((ingredient) => {
+      if (ingredient?.name && !rejected.includes(ingredient.name)) {
+        accepted.push(ingredient.name);
+      }
+    });
+  }
+
   postRecommend(
     {
       detected_ingredients: lastResult.detected_ingredients || [],
       ingredient_confirmation: {
+        accepted_ingredients: accepted,
         rejected_ingredients: rejected,
         replacements,
         additional_ingredients_text: elements.additionalIngredients.value.trim(),
