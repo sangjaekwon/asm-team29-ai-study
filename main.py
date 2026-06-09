@@ -119,6 +119,7 @@ def recommend(request: RecommendRequest):
         "generation_message": result.get("generation_message"),
         "recipe_generation_source": result.get("recipe_generation_source"),
         "recipe_generation_error": result.get("recipe_generation_error"),
+        "candidate_generation_error": result.get("candidate_generation_error"),
         "route": result.get("route"),
         "route_message": result.get("route_message"),
         "recipe_type": result.get("recipe_type"),
