@@ -1,6 +1,7 @@
 const state = {
   imageBase64: "",
   imageFilename: "",
+  imageReadPromise: null,
   previewUrl: "",
   lastResult: null,
   progressTimer: null,
@@ -617,29 +618,110 @@ function basePayload() {
   };
 }
 
-elements.imageInput.addEventListener("change", () => {
-  const file = elements.imageInput.files?.[0];
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("이미지를 읽지 못했습니다."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function setSelectedImage(file) {
   if (!file) {
-    return;
+    return "";
   }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.imageBase64 = String(reader.result || "");
-    state.imageFilename = file.name;
-    state.previewUrl = state.imageBase64;
+  state.imageFilename = file.name;
+  elements.uploadBox.classList.remove("needs-attention");
+  elements.uploadTitle.textContent = "사진 읽는 중";
+  elements.uploadHint.textContent = file.name;
+
+  const readPromise = readFileAsDataUrl(file);
+  state.imageReadPromise = readPromise;
+
+  try {
+    const dataUrl = await readPromise;
+    if (state.imageReadPromise !== readPromise) {
+      return state.imageBase64;
+    }
+
+    state.imageBase64 = dataUrl;
+    state.previewUrl = dataUrl;
     elements.uploadPreviewImage.src = state.previewUrl;
     elements.uploadBox.classList.add("uploaded");
     elements.uploadTitle.textContent = "업로드 완료";
     elements.uploadHint.textContent = file.name;
     renderAnalysisImage(null);
-  };
-  reader.readAsDataURL(file);
+    return dataUrl;
+  } finally {
+    if (state.imageReadPromise === readPromise) {
+      state.imageReadPromise = null;
+    }
+  }
+}
+
+async function ensureImageReady() {
+  const file = elements.imageInput.files?.[0];
+  if (!state.imageBase64 && file) {
+    return setSelectedImage(file);
+  }
+
+  if (state.imageReadPromise) {
+    await state.imageReadPromise;
+  }
+
+  return state.imageBase64;
+}
+
+function showImageReadError(message) {
+  state.imageBase64 = "";
+  state.previewUrl = "";
+  elements.uploadPreviewImage.removeAttribute("src");
+  elements.uploadBox.classList.add("needs-attention");
+  elements.uploadTitle.textContent = "사진을 읽지 못했어요";
+  elements.uploadHint.textContent = message || "다른 이미지를 다시 선택해주세요";
+}
+
+function handleSelectedImage(file) {
+  if (!file) {
+    return;
+  }
+
+  if (file.type && !file.type.startsWith("image/")) {
+    showImageReadError("이미지 파일만 올릴 수 있습니다");
+    return;
+  }
+
+  setSelectedImage(file).catch((error) => {
+    showImageReadError(error.message);
+  });
+}
+
+elements.imageInput.addEventListener("change", () => {
+  const file = elements.imageInput.files?.[0];
+  handleSelectedImage(file);
 });
 
-elements.form.addEventListener("submit", (event) => {
+elements.uploadBox.addEventListener("dragover", (event) => {
   event.preventDefault();
-  if (!state.imageBase64) {
+  elements.uploadBox.classList.add("needs-attention");
+});
+
+elements.uploadBox.addEventListener("dragleave", () => {
+  elements.uploadBox.classList.remove("needs-attention");
+});
+
+elements.uploadBox.addEventListener("drop", (event) => {
+  event.preventDefault();
+  elements.uploadBox.classList.remove("needs-attention");
+  handleSelectedImage(event.dataTransfer?.files?.[0]);
+});
+
+elements.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const imageBase64 = await ensureImageReady();
+  if (!imageBase64) {
     elements.uploadBox.classList.add("needs-attention");
     elements.uploadTitle.textContent = "사진을 먼저 올려주세요";
     elements.uploadHint.textContent = "데모에서는 사진 분석 흐름을 먼저 보여줍니다";
@@ -709,6 +791,7 @@ elements.confirmButton.addEventListener("click", () => {
 elements.resetButton.addEventListener("click", () => {
   state.imageBase64 = "";
   state.imageFilename = "";
+  state.imageReadPromise = null;
   state.previewUrl = "";
   state.lastResult = null;
   state.progressValue = 0;
