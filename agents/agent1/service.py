@@ -458,11 +458,11 @@ def _create_annotated_image(
 
     image = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(image)
-    font_size = max(20, min(34, image.width // 34))
+    font_size = max(12, min(22, image.width // 82, image.height // 58))
     font = _load_annotation_font(size=font_size)
-    stroke_width = max(3, image.width // 360)
-    text_stroke_width = max(1, font_size // 18)
-    padding = max(6, font_size // 5)
+    stroke_width = max(2, image.width // 500)
+    text_stroke_width = 0
+    padding = max(3, font_size // 6)
     occupied_rects: list[list[int]] = []
 
     for ingredient in detected_ingredients:
@@ -982,40 +982,14 @@ def _build_user_confirmed_output(
             ),
         ).model_dump()
 
-    try:
-        if _should_call_solar():
-            detected_ingredients, llm_result = _call_solar_ingredient_analyzer(
-                confirmed_names
-            )
-        else:
-            detected_ingredients = [
-                _build_detected_ingredient(name, source="user_confirmed")
-                for name in confirmed_names
-            ]
-            llm_result = {
-                "ingredients": confirmed_names,
-                "message": "사용자 확인 재료를 규칙 기반으로 확정했습니다.",
-            }
-    except (KeyError, TypeError, ValueError, ValidationError, json.JSONDecodeError) as exc:
-        detected_ingredients = [
-            _build_detected_ingredient(name, source="user_confirmed")
-            for name in confirmed_names
-        ]
-        llm_result = {
-            "ingredients": confirmed_names,
-            "message": "Solar 응답 파싱 실패로 규칙 기반 확정 결과를 사용했습니다.",
-            "error": str(exc),
-        }
-    except Exception as exc:
-        detected_ingredients = [
-            _build_detected_ingredient(name, source="user_confirmed")
-            for name in confirmed_names
-        ]
-        llm_result = {
-            "ingredients": confirmed_names,
-            "message": "Solar 호출 실패로 규칙 기반 확정 결과를 사용했습니다.",
-            "error": str(exc),
-        }
+    detected_ingredients = [
+        _build_detected_ingredient(name, source="user_confirmed")
+        for name in confirmed_names
+    ]
+    llm_result = {
+        "ingredients": confirmed_names,
+        "message": "사용자 확인 재료를 규칙 기반으로 확정했습니다.",
+    }
 
     if not detected_ingredients:
         detected_ingredients = [

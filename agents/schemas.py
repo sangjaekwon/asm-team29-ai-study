@@ -32,6 +32,8 @@ VisionStatus = Literal[
 FatigueLevel = Literal["low", "medium", "high"]
 Difficulty = Literal["easy", "normal", "hard"]
 RecipeType = Literal["korean", "chinese", "japanese", "western"]
+IngredientPolicy = Literal["only_available", "allow_additional"]
+RecipeRoute = Literal["can_cook", "no_ingredient", "conflict", "simple"]
 RouteType = Literal[
     "can_cook",
     "simple",
@@ -166,8 +168,15 @@ class CandidateFood(BaseModel):
 
     name: str
     recipe_type: RecipeType
+    core_ingredients: list[str] = Field(default_factory=list)
     required_ingredients: list[str] = Field(default_factory=list)
     optional_ingredients: list[str] = Field(default_factory=list)
+    seasonings: list[str] = Field(default_factory=list)
+    substitutions: dict[str, str | None] = Field(default_factory=dict)
+    difficulty: Difficulty = "easy"
+    cooking_time_minutes: int = Field(default=15, ge=1)
+    taste_profile: list[str] = Field(default_factory=list)
+    cooking_methods: list[str] = Field(default_factory=list)
     reason: str = ""
 
 
@@ -187,12 +196,37 @@ class Substitution(BaseModel):
     reason: str = ""
 
 
+class RecipeCandidateEvaluation(BaseModel):
+    """Agent4 evaluation result for one candidate recipe."""
+
+    candidate_name: str
+    route: RecipeRoute
+    can_pass_to_agent5: bool = False
+    missing_required_ingredients: list[str] = Field(default_factory=list)
+    missing_optional_ingredients: list[str] = Field(default_factory=list)
+    conflict_reasons: list[str] = Field(default_factory=list)
+    substitutions: list[Substitution] = Field(default_factory=list)
+    score: int = 0
+
+
+class RecipeRouterInput(BaseModel):
+    """Inputs used by Agent4 to route feasible recipe candidates."""
+
+    available_ingredients: list[str] = Field(default_factory=list)
+    ingredient_info: IngredientInfo = Field(default_factory=IngredientInfo)
+    food_directions: FoodDirections = Field(default_factory=FoodDirections)
+    recipe_type: RecipeType | None = None
+    recipe_type_reason: str = ""
+    ingredient_policy: IngredientPolicy = "only_available"
+    candidate_foods: list[CandidateFood] = Field(default_factory=list)
+
+
 class RecipeRouterOutput(BaseModel):
     """가능 레시피 라우터가 State에 기록하는 출력."""
 
     candidate_foods: list[CandidateFood] = Field(default_factory=list)
-    candidate_evaluations: list[dict[str, Any]] = Field(default_factory=list)
-    route: RouteType = "can_cook"
+    candidate_evaluations: list[RecipeCandidateEvaluation] = Field(default_factory=list)
+    route: RecipeRoute = "can_cook"
     route_message: str = ""
     selected_recipe: SelectedRecipe | None = None
     ingredients_to_use: list[str] = Field(default_factory=list)
@@ -200,6 +234,12 @@ class RecipeRouterOutput(BaseModel):
     substitutions: list[Substitution] = Field(default_factory=list)
     additional_ingredients: list[str] = Field(default_factory=list)
     can_pass_to_agent5: bool = False
+
+
+class RecipeRouterState(RecipeRouterInput, RecipeRouterOutput):
+    """Standalone Agent4 state for tests or direct API usage."""
+
+    pass
 
 
 # ============================================================
@@ -218,6 +258,7 @@ class GeneratedRecipe(BaseModel):
     cooking_tips: list[str] = Field(default_factory=list)
     substitutions: list[Substitution] = Field(default_factory=list)
     additional_ingredients: list[str] = Field(default_factory=list)
+    recommendation_reasons: list[str] = Field(default_factory=list)
 
 
 class RecipeGeneratorOutput(BaseModel):
@@ -273,7 +314,8 @@ class AgentState(TypedDict, total=False):
 
     # 4. 가능 레시피 라우터 에이전트 출력
     candidate_foods: list[CandidateFood]
-    candidate_evaluations: list[dict[str, Any]]
+    candidate_evaluations: list[RecipeCandidateEvaluation]
+    candidate_generation_error: str
     route: RouteType
     route_message: str
     selected_recipe: SelectedRecipe | None

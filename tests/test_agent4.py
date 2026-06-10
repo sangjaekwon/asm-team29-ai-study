@@ -7,6 +7,7 @@ def egg_rice_candidate():
     return {
         "name": "egg_rice",
         "recipe_type": "korean",
+        "core_ingredients": ["rice", "egg"],
         "required_ingredients": ["rice", "egg"],
         "optional_ingredients": ["green_onion"],
         "seasonings": ["soy_sauce"],
@@ -21,6 +22,7 @@ def korean_egg_fried_rice_candidate():
     return {
         "name": "계란볶음밥",
         "recipe_type": "korean",
+        "core_ingredients": ["밥", "계란"],
         "required_ingredients": ["밥", "계란"],
         "optional_ingredients": ["대파"],
         "seasonings": ["간장"],
@@ -107,7 +109,7 @@ class Agent4RecipeRouterTest(unittest.TestCase):
         self.assertFalse(result.can_pass_to_agent5)
         self.assertIsNone(result.selected_recipe)
 
-    def test_conflict_does_not_pass_to_agent5(self):
+    def test_soft_conflict_still_passes_when_core_ingredients_exist(self):
         result = route_recipe(
             {
                 "available_ingredients": ["rice", "egg", "soy_sauce"],
@@ -122,9 +124,9 @@ class Agent4RecipeRouterTest(unittest.TestCase):
             }
         )
 
-        self.assertEqual(result.route, "conflict")
-        self.assertFalse(result.can_pass_to_agent5)
-        self.assertIsNone(result.selected_recipe)
+        self.assertEqual(result.route, "simple")
+        self.assertTrue(result.can_pass_to_agent5)
+        self.assertEqual(result.selected_recipe.name, "egg_rice")
 
     def test_quick_cooking_preference_matches_simple_pan_candidates(self):
         result = route_recipe(
@@ -190,6 +192,7 @@ class Agent4RecipeRouterTest(unittest.TestCase):
                     {
                         "name": "egg_rice",
                         "recipe_type": "korean",
+                        "core_ingredients": ["rice", "egg"],
                         "required_ingredients": ["rice", "egg", "soy_sauce"],
                         "optional_ingredients": [],
                         "seasonings": [],
@@ -203,6 +206,30 @@ class Agent4RecipeRouterTest(unittest.TestCase):
         self.assertEqual(result.route, "can_cook")
         self.assertEqual(result.ingredients_to_use, ["rice", "egg"])
         self.assertEqual(result.seasonings_to_use, ["soy_sauce"])
+
+    def test_core_ingredients_block_when_missing_even_if_required_is_available(self):
+        result = route_recipe(
+            {
+                "available_ingredients": ["돼지고기", "고추장"],
+                "recipe_type": "korean",
+                "candidate_foods": [
+                    {
+                        "name": "김치찌개",
+                        "recipe_type": "korean",
+                        "core_ingredients": ["김치"],
+                        "required_ingredients": ["돼지고기", "고추장"],
+                        "optional_ingredients": [],
+                        "seasonings": [],
+                        "difficulty": "easy",
+                        "cooking_time_minutes": 10,
+                    }
+                ],
+            }
+        )
+
+        self.assertEqual(result.route, "no_ingredient")
+        self.assertFalse(result.can_pass_to_agent5)
+        self.assertEqual(result.additional_ingredients, ["김치"])
 
     def test_route_recipe_node_returns_graph_friendly_dict(self):
         result = route_recipe_node(

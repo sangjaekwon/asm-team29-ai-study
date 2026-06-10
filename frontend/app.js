@@ -5,6 +5,7 @@ const state = {
   lastResult: null,
   progressTimer: null,
   progressValue: 0,
+  progressStartedAt: 0,
 };
 
 const elements = {
@@ -145,17 +146,23 @@ function updateProgress(value, label, hint) {
 function startProgress(stage) {
   window.clearInterval(state.progressTimer);
   state.progressValue = 5;
+  state.progressStartedAt = Date.now();
   elements.progressPanel.classList.remove("hidden", "error");
 
   const [initialLabel, initialHint] = progressText(state.progressValue, stage);
   updateProgress(state.progressValue, initialLabel, initialHint);
 
   state.progressTimer = window.setInterval(() => {
-    const ceiling = stage === "final" ? 92 : 94;
+    const elapsedSeconds = Math.floor((Date.now() - state.progressStartedAt) / 1000);
+    const ceiling = stage === "final" ? 98 : 96;
     const remaining = ceiling - state.progressValue;
-    const delta = Math.max(1, Math.ceil(remaining * 0.08));
+    const delta = remaining > 8 ? Math.max(1, Math.ceil(remaining * 0.08)) : 1;
     const nextValue = Math.min(ceiling, state.progressValue + delta);
-    const [label, hint] = progressText(nextValue, stage);
+    let [label, hint] = progressText(nextValue, stage);
+    if (stage === "final" && nextValue >= 92) {
+      label = "레시피 응답 대기";
+      hint = `Agent4/Agent5가 레시피를 정리하는 중입니다. ${elapsedSeconds}초째 처리 중입니다.`;
+    }
     updateProgress(nextValue, label, hint);
   }, 700);
 }
@@ -163,6 +170,7 @@ function startProgress(stage) {
 function completeProgress(stage) {
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
   const label = stage === "final" ? "레시피 완성" : "인식 완료";
   const hint =
     stage === "final"
@@ -174,6 +182,7 @@ function completeProgress(stage) {
 function failProgress(message) {
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
   elements.progressPanel.classList.remove("hidden");
   elements.progressPanel.classList.add("error");
   updateProgress(state.progressValue || 100, "오류", message || "요청 처리 중 오류가 발생했습니다.");
@@ -394,14 +403,48 @@ function friendlyRouteMessage(result) {
       "사용할 재료가 아직 확인되지 않았어요.",
     candidate_foods_required:
       "비교할 요리 후보가 아직 준비되지 않았어요.",
+    candidate_generation_failed:
+      "AI candidate generation failed. Check API settings and server logs.",
   };
 
   return (
     messages[result.route_message] ||
+    result.candidate_generation_error ||
+    result.recipe_generation_error ||
     result.generation_message ||
     result.route_message ||
     "재료를 조금 더 확인해주세요."
   );
+}
+
+function buildRecommendationReasons(recipe, result) {
+  const reasons = [
+    ...(recipe.recommendation_reasons || []),
+    result.selected_recipe?.reason || "",
+  ]
+    .map((reason) => String(reason).trim())
+    .filter(Boolean);
+
+  if (!reasons.length) {
+    reasons.push("Agent4가 이 레시피를 최종 후보로 선택했지만, 선택 이유가 응답에 포함되지 않았습니다.");
+  }
+
+  return reasons.reduce((deduped, reason) => {
+    const current = reason.replace(/\.+$/, "").replace(/\s+/g, " ").trim();
+    const duplicated = deduped.some((existing) => {
+      const previous = existing.replace(/\.+$/, "").replace(/\s+/g, " ").trim();
+      return (
+        current === previous ||
+        (current.length >= 20 && previous.includes(current)) ||
+        (previous.length >= 20 && current.includes(previous))
+      );
+    });
+
+    if (!duplicated) {
+      deduped.push(reason);
+    }
+    return deduped;
+  }, []);
 }
 
 function renderRecipe(result) {
@@ -419,9 +462,14 @@ function renderRecipe(result) {
 
   const mood = elements.moodInput.value.trim();
   const situation = elements.situationInput.value.trim();
-  const substitutions = recipe.substitutions || result.substitutions || [];
-  const additional = recipe.additional_ingredients || result.additional_ingredients || [];
+  const substitutions = (recipe.substitutions || result.substitutions || []).filter(
+    (item) => item && String(item.original || "").trim(),
+  );
+  const additional = (recipe.additional_ingredients || result.additional_ingredients || []).filter(
+    (item) => String(item || "").trim(),
+  );
   const tips = recipe.cooking_tips || [];
+  const recommendationReasons = buildRecommendationReasons(recipe, result);
 
   elements.recipeSummary.textContent = `${mood || "오늘"} 기분과 "${situation || "든든하게 먹고 싶어요"}" 상황에 맞춰 ${recipe.recipe_name}을 추천합니다.`;
   elements.recipeCard.innerHTML = `
@@ -436,6 +484,13 @@ function renderRecipe(result) {
         <span class="chip strong">${difficultyLabel(recipe.difficulty)}</span>
         <span class="chip strong">${recipe.servings || 1}인분</span>
       </div>
+
+      <section class="recipe-block">
+        <h3>추천한 이유</h3>
+        <ul class="plain-list">
+          ${recommendationReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
+        </ul>
+      </section>
 
       <section class="recipe-block">
         <h3>오늘 쓸 재료</h3>
@@ -602,6 +657,7 @@ elements.confirmButton.addEventListener("click", () => {
 
   const rejected = [];
   const replacements = {};
+  const accepted = [];
   const items = elements.confirmationList.querySelectorAll(".confirmation-item");
 
   items.forEach((item) => {
@@ -615,15 +671,27 @@ elements.confirmButton.addEventListener("click", () => {
       rejected.push(name);
       return;
     }
+    if (replacement) {
+      accepted.push(replacement);
+    }
     if (replacement && replacement !== name) {
       replacements[name] = replacement;
     }
   });
 
+  if (!accepted.length) {
+    (lastResult.detected_ingredients || []).forEach((ingredient) => {
+      if (ingredient?.name && !rejected.includes(ingredient.name)) {
+        accepted.push(ingredient.name);
+      }
+    });
+  }
+
   postRecommend(
     {
       detected_ingredients: lastResult.detected_ingredients || [],
       ingredient_confirmation: {
+        accepted_ingredients: accepted,
         rejected_ingredients: rejected,
         replacements,
         additional_ingredients_text: elements.additionalIngredients.value.trim(),
@@ -646,6 +714,7 @@ elements.resetButton.addEventListener("click", () => {
   state.progressValue = 0;
   window.clearInterval(state.progressTimer);
   state.progressTimer = null;
+  state.progressStartedAt = 0;
 
   elements.form.reset();
   elements.manualIngredients.value = "";
