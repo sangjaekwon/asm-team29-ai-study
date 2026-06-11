@@ -7,6 +7,7 @@ pytest==9.0.3
 langgraph==1.0.4
 torch==2.12.0
 pillow==12.2.0
+scipy==1.17.1
 transformers==5.10.1
 streamlit>=1.35.0
 requests>=2.31.0

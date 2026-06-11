@@ -1,6 +1,6 @@
 """Recipe recommendation multi-agent LangGraph workflow."""
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from agents.agent2.node import analyze_context
 from agents.agent1.service import analyze_ingredients
@@ -27,12 +27,13 @@ def build_recipe_graph():
     workflow.add_node("recipe_router", route_recipe_node)
     workflow.add_node("recipe_generator", generate_recipe)
 
-    workflow.set_entry_point("ingredient_analyzer")
+    workflow.add_edge(START, "ingredient_analyzer")
+    workflow.add_edge(START, "context_analyzer")
     workflow.add_conditional_edges(
         "ingredient_analyzer",
         route_after_ingredient_analyzer,
         {
-            "continue": "context_analyzer",
+            "continue": "cuisine_router",
             "wait_for_user_confirmation": END,
         },
     )
