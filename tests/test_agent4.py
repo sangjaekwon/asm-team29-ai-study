@@ -147,6 +147,24 @@ class Agent4RecipeRouterTest(unittest.TestCase):
         self.assertTrue(result.can_pass_to_agent5)
         self.assertEqual(result.selected_recipe.name, "계란볶음밥")
 
+    def test_conflict_when_no_candidate_matches_recipe_type(self):
+        result = route_recipe(
+            {
+                "available_ingredients": ["rice", "egg", "soy_sauce"],
+                "recipe_type": "japanese",
+                "candidate_foods": [egg_rice_candidate()],
+                "food_directions": {
+                    "difficulty": "easy",
+                    "cooking_time_limit_minutes": 15,
+                },
+            }
+        )
+
+        self.assertEqual(result.route, "conflict")
+        self.assertEqual(result.route_message, "no_candidate_matches_recipe_type")
+        self.assertFalse(result.can_pass_to_agent5)
+        self.assertIsNone(result.selected_recipe)
+
     def test_missing_candidates_are_reported(self):
         result = route_recipe(
             {
