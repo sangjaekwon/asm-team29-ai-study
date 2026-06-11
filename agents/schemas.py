@@ -293,6 +293,7 @@ class AgentState(TypedDict, total=False):
     user_mood_input: str
     user_situation_input: str
     servings: int
+    ingredient_policy: IngredientPolicy
 
     # 1. 재료 파악 에이전트 출력
     detected_ingredients: list[DetectedIngredient]

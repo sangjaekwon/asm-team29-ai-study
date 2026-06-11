@@ -161,6 +161,7 @@ def _ai_candidate_payload(
         "food_directions": _state_food_directions(state),
         "user_mood_input": state.get("user_mood_input", ""),
         "user_situation_input": state.get("user_situation_input", ""),
+        "ingredient_policy": state.get("ingredient_policy", "only_available"),
     }
 
 
