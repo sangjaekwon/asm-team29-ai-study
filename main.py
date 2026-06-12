@@ -22,6 +22,7 @@ from agents.graph import run_recipe_graph
 from agents.schemas import (
     AgentState,
     DetectedIngredient,
+    FoodDirections,
     IngredientConfirmationInput,
 )
 from agents.workflow_trace import latest_trace, record_backend_step, start_trace
@@ -81,6 +82,7 @@ class RecommendRequest(BaseModel):
     candidate_foods: list[dict] = Field(default_factory=list)
     user_mood_input: str = ""
     user_situation_input: str = ""
+    food_directions: FoodDirections | None = None
     servings: int = 1
 
 
@@ -166,6 +168,7 @@ def recommend(request: RecommendRequest):
         "route_message": result.get("route_message"),
         "recipe_type": result.get("recipe_type"),
         "recipe_type_reason": result.get("recipe_type_reason"),
+        "food_directions": result.get("food_directions"),
         "candidate_foods": result.get("candidate_foods", []),
         "candidate_evaluations": result.get("candidate_evaluations", []),
         "selected_recipe": result.get("selected_recipe"),

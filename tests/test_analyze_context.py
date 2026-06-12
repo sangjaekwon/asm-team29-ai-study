@@ -49,3 +49,17 @@ def test_agent2_node_skips_when_inputs_whitespace_only():
     update = analyze_context(state)
 
     assert update == {}
+
+
+def test_agent2_node_skips_when_food_directions_already_present():
+    """이전 트레이스에서 받은 food_directions가 있으면 재호출하지 않는다."""
+
+    state: AgentState = {
+        "user_mood_input": "피곤하다",
+        "user_situation_input": "퇴근 직후",
+        "food_directions": FoodDirections(fatigue_level="high", difficulty="easy").model_dump(),
+    }
+
+    update = analyze_context(state)
+
+    assert update == {}

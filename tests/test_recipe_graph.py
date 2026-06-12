@@ -1,4 +1,4 @@
-from agents.graph import build_recipe_graph, run_recipe_graph
+from agents.graph import build_recipe_graph, route_after_analysis, run_recipe_graph
 from agents.schemas import AgentState
 
 
@@ -27,6 +27,44 @@ def test_recipe_graph_compiles():
     graph = build_recipe_graph()
 
     assert graph is not None
+
+def test_route_after_analysis_continues_when_no_confirmation_needed():
+    assert route_after_analysis({"vision_status": "success"}) == "continue"
+    assert route_after_analysis({"vision_status": "no_ingredient_detected"}) == "continue"
+    assert route_after_analysis({}) == "continue"
+
+
+def test_route_after_analysis_stops_when_confirmation_needed():
+    assert (
+        route_after_analysis({"vision_status": "need_user_confirmation"})
+        == "wait_for_user_confirmation"
+    )
+
+
+def test_recipe_graph_stops_before_cuisine_router_when_confirmation_needed(monkeypatch):
+    import agents.graph as graph_module
+
+    def fake_ingredient_analyzer(state):
+        return {"vision_status": "need_user_confirmation", "uncertain_ingredients": ["계란"]}
+
+    monkeypatch.setattr(graph_module, "analyze_ingredients", fake_ingredient_analyzer)
+
+    result = run_recipe_graph(
+        {
+            "user_mood_input": "피곤해",
+            "user_situation_input": "빠른 저녁",
+            "servings": 1,
+        }
+    )
+
+    assert result["vision_status"] == "need_user_confirmation"
+    assert "recipe_type" not in result
+    assert "route" not in result
+    assert "generation_status" not in result
+    # context_analyzer still runs and produces food_directions for the
+    # follow-up trace, even though cuisine_router never executes.
+    assert "food_directions" in result
+
 
 def test_recipe_graph_uses_agent3_node():
     result = run_recipe_graph(

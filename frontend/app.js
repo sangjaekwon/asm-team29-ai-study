@@ -780,6 +780,7 @@ elements.confirmButton.addEventListener("click", () => {
       },
       user_mood_input: elements.moodInput.value.trim(),
       user_situation_input: elements.situationInput.value.trim(),
+      food_directions: lastResult.food_directions || null,
       servings: Number(elements.servingsInput.value || 1),
       confidence_threshold: Number(elements.confidenceInput.value || 0.4),
       ingredient_policy: ingredientPolicyValue(),
